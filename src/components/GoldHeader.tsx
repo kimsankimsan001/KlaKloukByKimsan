@@ -13,10 +13,18 @@ export const GoldHeader: React.FC<Props> = ({
   titleKhmer = 'ខ្លាឃ្លោក ភូមិយើង',
   subtitle,
 }) => {
+  const hasSubtitle = Boolean(subtitle && subtitle.trim().length > 0);
+  const svgHeight = hasSubtitle ? 66 : 58;
+  const centerY = svgHeight / 2;
+  const outerHeight = hasSubtitle ? 52 : 46;
+  const outerY = (svgHeight - outerHeight) / 2;
+  const innerHeight = hasSubtitle ? 44 : 38;
+  const innerY = (svgHeight - innerHeight) / 2;
+
   return (
     <View style={styles.container}>
       <View style={styles.badgeWrapper}>
-        <Svg width={260} height={58} viewBox="0 0 260 58">
+        <Svg width={270} height={svgHeight} viewBox={`0 0 270 ${svgHeight}`}>
           <Defs>
             {/* Outer Gold Gradient */}
             <LinearGradient id="goldBorderGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -34,7 +42,7 @@ export const GoldHeader: React.FC<Props> = ({
           </Defs>
 
           {/* Left Scroll / Kbach Spiral */}
-          <G transform="translate(18, 29)">
+          <G transform={`translate(18, ${centerY})`}>
             <Path
               d="M0 0 C-10 -14 -16 6 -6 10 C2 13 4 5 0 0"
               stroke="url(#goldBorderGrad)"
@@ -46,7 +54,7 @@ export const GoldHeader: React.FC<Props> = ({
           </G>
 
           {/* Right Scroll / Kbach Spiral */}
-          <G transform="translate(242, 29)">
+          <G transform={`translate(252, ${centerY})`}>
             <Path
               d="M0 0 C10 -14 16 6 6 10 C-2 13 -4 5 0 0"
               stroke="url(#goldBorderGrad)"
@@ -60,10 +68,10 @@ export const GoldHeader: React.FC<Props> = ({
           {/* Main Gold Cartouche Outer */}
           <Rect
             x="24"
-            y="6"
-            width="212"
-            height="46"
-            rx="23"
+            y={outerY}
+            width="222"
+            height={outerHeight}
+            rx={outerHeight / 2}
             fill="url(#goldBorderGrad)"
             stroke="#8D5B00"
             strokeWidth="1.5"
@@ -72,24 +80,24 @@ export const GoldHeader: React.FC<Props> = ({
           {/* Inner Inset Plaque */}
           <Rect
             x="28"
-            y="10"
-            width="204"
-            height="38"
-            rx="19"
+            y={innerY}
+            width="214"
+            height={innerHeight}
+            rx={innerHeight / 2}
             fill="url(#innerPlaqueBg)"
             stroke="#FFE082"
             strokeWidth="1.2"
           />
 
           {/* Decorative Corner Dots */}
-          <Circle cx="38" cy="29" r="2.5" fill="#FFD54F" />
-          <Circle cx="222" cy="29" r="2.5" fill="#FFD54F" />
+          <Circle cx="39" cy={centerY} r="2.5" fill="#FFD54F" />
+          <Circle cx="231" cy={centerY} r="2.5" fill="#FFD54F" />
         </Svg>
 
         {/* Khmer Calligraphy Text Overlay */}
         <View style={[styles.textContainer, { pointerEvents: 'none' as any }]}>
           <Text style={styles.titleKhmer}>{titleKhmer}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
+          {hasSubtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
         </View>
       </View>
     </View>
@@ -114,23 +122,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    paddingHorizontal: 36,
+    paddingHorizontal: 40,
   },
   titleKhmer: {
     fontFamily: FONTS.khmerBlack,
-    fontSize: 20,
-    fontWeight: '900',
+    fontSize: 21,
+    lineHeight: 32,
     color: '#FFE082',
-    letterSpacing: 0.8,
+    textAlign: 'center',
     textShadowColor: 'rgba(0, 0, 0, 0.9)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 3,
   },
   subtitle: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
     color: '#FCD34D',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
+    marginTop: 2,
+    textAlign: 'center',
   },
 });

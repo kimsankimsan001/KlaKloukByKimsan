@@ -116,6 +116,10 @@ export default function App() {
     }
   };
 
+  if (!fontsLoaded) {
+    return null;
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />

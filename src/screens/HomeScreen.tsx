@@ -53,10 +53,7 @@ export const HomeScreen: React.FC<Props> = ({
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {/* Top Title Plaque */}
           <View style={styles.headerSpacing}>
-            <GoldHeader
-              titleKhmer="ខ្លាឃ្លោក ភូមិយើង"
-              subtitle="TRADITIONAL KHMER CASINO"
-            />
+            <GoldHeader titleKhmer="ខ្លាឃ្លោក ភូមិយើង" />
           </View>
 
           {/* Hero Emblem Banner with Animal Trio */}

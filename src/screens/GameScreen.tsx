@@ -181,10 +181,7 @@ export const GameScreen: React.FC<Props> = ({
           />
 
           {/* Ornate Khmer Title Plaque matching reference */}
-          <GoldHeader
-            titleKhmer="ខ្លាឃ្លោក ភូមិយើង"
-            subtitle={settings.language === 'en' ? 'Khmer Kla Klouk Casino' : undefined}
-          />
+          <GoldHeader titleKhmer="ខ្លាឃ្លោក ភូមិយើង" />
 
           {/* Host Dealer Notice Toast */}
           {hostNotice && (
