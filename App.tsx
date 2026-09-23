@@ -7,6 +7,7 @@ import { GameScreen } from './src/screens/GameScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { AboutModal } from './src/components/AboutModal';
+import { MultiplayerEntryModal } from './src/components/MultiplayerEntryModal';
 
 import {
   useFonts,
@@ -27,6 +28,7 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<ScreenName>('home'); // Boots into Main Menu per user request!
   const [previousScreen, setPreviousScreen] = useState<ScreenName>('home');
   const [showAbout, setShowAbout] = useState(false);
+  const [showMultiplayerModal, setShowMultiplayerModal] = useState(false);
 
   const initialize = useGameStore((state) => state.initialize);
   const joinOnlineRoomAction = useGameStore((state) => state.joinOnlineRoomAction);
@@ -60,7 +62,7 @@ export default function App() {
   };
 
   const handleStartMultiplayer = () => {
-    navigateTo('game');
+    setShowMultiplayerModal(true);
   };
 
   const renderScreen = () => {
@@ -105,6 +107,14 @@ export default function App() {
       <StatusBar style="light" />
       {renderScreen()}
       <AboutModal visible={showAbout} onClose={() => setShowAbout(false)} />
+      <MultiplayerEntryModal
+        visible={showMultiplayerModal}
+        onClose={() => setShowMultiplayerModal(false)}
+        onSuccess={() => {
+          setShowMultiplayerModal(false);
+          navigateTo('game');
+        }}
+      />
     </View>
   );
 }
