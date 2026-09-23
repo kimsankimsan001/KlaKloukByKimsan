@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Kla Klouk by Kimsan",
+    "slug": "kla-klouk-by-kimsan",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.khmergames.klaklouk"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F1923",
+        "foregroundImage": "./assets/android-icon-foreground.png"
+      },
+      "package": "com.khmergames.klaklouk",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}

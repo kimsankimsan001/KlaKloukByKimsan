@@ -1,0 +1,736 @@
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  Share,
+  Platform,
+  TextInput,
+  Alert,
+} from 'react-native';
+import { COLORS, FONTS } from '../constants/theme';
+import { useGameStore } from '../store/gameStore';
+import { isFirebaseConfigured } from '../services/firebaseConfig';
+import { formatCoins } from '../services/gameLogic';
+
+interface Props {
+  isCompact?: boolean;
+}
+
+export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
+  const roomId = useGameStore((state) => state.roomId);
+  const tablePlayers = useGameStore((state) => state.tablePlayers);
+  const onlinePlayers = useGameStore((state) => state.onlinePlayers);
+  const isOnline = useGameStore((state) => state.isOnline);
+  const isHost = useGameStore((state) => state.isHost);
+  const playerName = useGameStore((state) => state.playerName);
+  const setPlayerName = useGameStore((state) => state.setPlayerName);
+
+  const createOnlineRoomAction = useGameStore((state) => state.createOnlineRoomAction);
+  const joinOnlineRoomAction = useGameStore((state) => state.joinOnlineRoomAction);
+  const leaveOnlineRoomAction = useGameStore((state) => state.leaveOnlineRoomAction);
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [onlineModalVisible, setOnlineModalVisible] = useState(false);
+  const [copiedNotice, setCopiedNotice] = useState(false);
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [editingName, setEditingName] = useState(playerName);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const hasFirebase = isFirebaseConfigured();
+
+  const handleInvite = async () => {
+    try {
+      const inviteUrl =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/?room=${roomId}`
+          : `Room ID: ${roomId}`;
+      const message = `ចូលលេងខ្លាឃ្លោកជាមួយខ្ញុំ! បន្ទប់លេខ (Room ID): ${roomId}\n${inviteUrl}`;
+
+      if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(message);
+        setCopiedNotice(true);
+        setTimeout(() => setCopiedNotice(false), 2500);
+      } else {
+        await Share.share({
+          message,
+          title: 'Kla Klouk by Kimsan Room Invite',
+        });
+      }
+    } catch {}
+  };
+
+  const handleCreateRoom = async () => {
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      if (editingName.trim()) {
+        setPlayerName(editingName.trim());
+      }
+      await createOnlineRoomAction();
+      setCopiedNotice(false);
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to create room');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleJoinRoom = async () => {
+    const code = joinCodeInput.trim();
+    if (!code) {
+      setActionError('សូមបញ្ចូលលេខកូដបន្ទប់ (Please enter room ID)');
+      return;
+    }
+    setIsProcessing(true);
+    setActionError(null);
+    try {
+      if (editingName.trim()) {
+        setPlayerName(editingName.trim());
+      }
+      const res = await joinOnlineRoomAction(code);
+      if (!res.success) {
+        setActionError(res.error || 'Failed to join room');
+      } else {
+        setJoinCodeInput('');
+      }
+    } catch (e: any) {
+      setActionError(e?.message || 'Error joining room');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleLeaveRoom = async () => {
+    setIsProcessing(true);
+    try {
+      await leaveOnlineRoomAction();
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const renderContent = () => (
+    <View style={styles.cardContainer}>
+      {/* Header: Room ID & Invite Button */}
+      <View style={styles.headerRow}>
+        <TouchableOpacity
+          style={styles.idBadge}
+          activeOpacity={0.8}
+          onPress={() => setOnlineModalVisible(true)}
+        >
+          <Text style={styles.idText}>ID : {roomId}</Text>
+          <Text style={styles.onlineStatusText}>
+            {isOnline ? '🟢 ONLINE' : '⚙️ LOBBY'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.inviteButton}
+          activeOpacity={0.7}
+          onPress={handleInvite}
+        >
+          <Text style={styles.inviteText}>
+            {copiedNotice ? 'COPIED!' : 'INVITE'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Player Slots */}
+      <View style={styles.playerSlotsContainer}>
+        {tablePlayers.map((player, idx) => (
+          <View key={idx} style={styles.playerSlot}>
+            <View style={styles.activeDot} />
+            <Text style={styles.slotText} numberOfLines={1}>
+              {player} {idx === 0 && isOnline && isHost ? '👑' : 'JOINED'}
+            </Text>
+          </View>
+        ))}
+        {Array.from({ length: Math.max(0, 6 - tablePlayers.length) }).map((_, idx) => (
+          <View key={`empty-${idx}`} style={[styles.playerSlot, styles.emptySlot]}>
+            <Text style={styles.emptySlotText}>WAITING PLAYER...</Text>
+          </View>
+        ))}
+      </View>
+
+      {/* Online Lobby Trigger Button */}
+      <TouchableOpacity
+        style={styles.startButton}
+        activeOpacity={0.7}
+        onPress={() => setOnlineModalVisible(true)}
+      >
+        <Text style={styles.startBtnText}>
+          {isOnline ? 'ROOM SETTINGS' : 'MULTIPLAYER'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <>
+      {isCompact ? (
+        <TouchableOpacity
+          style={styles.compactTrigger}
+          activeOpacity={0.8}
+          onPress={() => setOnlineModalVisible(true)}
+        >
+          <Text style={styles.compactTriggerText}>
+            {isOnline ? '🟢' : '🎲'} #{roomId}
+          </Text>
+          <View style={styles.compactPlayerCount}>
+            <Text style={styles.compactCountText}>{tablePlayers.length}/6</Text>
+          </View>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.sidebarWrapper}>{renderContent()}</View>
+      )}
+
+      {/* Full Online Multiplayer Manager Modal */}
+      <Modal
+        visible={onlineModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOnlineModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.multiplayerCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>បន្ទប់លេងអនឡាញ (MULTIPLAYER)</Text>
+              <TouchableOpacity
+                style={styles.closeHeaderBtn}
+                onPress={() => setOnlineModalVisible(false)}
+              >
+                <Text style={styles.closeHeaderTxt}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+              {/* Firebase Connection Status Banner */}
+              <View
+                style={[
+                  styles.statusBanner,
+                  hasFirebase ? styles.statusBannerOnline : styles.statusBannerLocal,
+                ]}
+              >
+                <Text style={styles.statusBannerIcon}>{hasFirebase ? '⚡' : '🎮'}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.statusBannerTitle}>
+                    {hasFirebase
+                      ? 'Firebase Realtime Database: CONNECTED'
+                      : 'Mock Multiplayer: READY'}
+                  </Text>
+                  <Text style={styles.statusBannerSub}>
+                    {hasFirebase
+                      ? 'Global synchronized dice rolls & live player bets active.'
+                      : 'To connect your live Firebase project, paste your keys into .env or src/services/firebaseConfig.ts'}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Player Name Input */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>ឈ្មោះរបស់អ្នក (YOUR NAME):</Text>
+                <TextInput
+                  value={editingName}
+                  onChangeText={setEditingName}
+                  placeholder="Enter your player name"
+                  placeholderTextColor="#64748B"
+                  style={styles.textInput}
+                />
+              </View>
+
+              {/* Room ID & Live Info */}
+              <View style={styles.roomInfoBox}>
+                <Text style={styles.roomInfoLabel}>លេខកូដបន្ទប់បច្ចុប្បន្ន (CURRENT ROOM ID):</Text>
+                <Text style={styles.roomInfoCode}>{roomId}</Text>
+                <TouchableOpacity style={styles.copyLinkBtn} onPress={handleInvite}>
+                  <Text style={styles.copyLinkTxt}>
+                    {copiedNotice ? '✓ បានចម្លងរួចរាល់ (COPIED)' : '🔗 ចម្លងតំណភ្ជាប់ (COPY INVITE LINK)'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {actionError && (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{actionError}</Text>
+                </View>
+              )}
+
+              {/* Room Actions */}
+              <View style={styles.actionButtonsCol}>
+                <TouchableOpacity
+                  style={[styles.primaryActionBtn, isProcessing && styles.btnDisabled]}
+                  disabled={isProcessing}
+                  onPress={handleCreateRoom}
+                >
+                  <Text style={styles.primaryActionTxt}>
+                    👑 បង្កើតបន្ទប់ថ្មី (CREATE NEW ROOM)
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.joinRow}>
+                  <TextInput
+                    value={joinCodeInput}
+                    onChangeText={setJoinCodeInput}
+                    placeholder="Enter 6-digit Room ID"
+                    placeholderTextColor="#64748B"
+                    keyboardType="number-pad"
+                    style={styles.joinInput}
+                  />
+                  <TouchableOpacity
+                    style={[styles.joinBtn, isProcessing && styles.btnDisabled]}
+                    disabled={isProcessing}
+                    onPress={handleJoinRoom}
+                  >
+                    <Text style={styles.joinBtnTxt}>JOIN</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {isOnline && (
+                  <TouchableOpacity
+                    style={styles.leaveBtn}
+                    onPress={handleLeaveRoom}
+                  >
+                    <Text style={styles.leaveBtnTxt}>ចាកចេញពីបន្ទប់ (LEAVE ONLINE ROOM)</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Connected Players List */}
+              <View style={styles.connectedSection}>
+                <Text style={styles.connectedTitle}>
+                  អ្នកលេងនៅក្នុងតុ ({tablePlayers.length}/6 PLAYERS):
+                </Text>
+                <View style={styles.playersList}>
+                  {tablePlayers.map((name, i) => (
+                    <View key={i} style={styles.playerListItem}>
+                      <View style={styles.activeDot} />
+                      <Text style={styles.playerListName}>{name}</Text>
+                      {i === 0 && isHost && (
+                        <View style={styles.hostBadge}>
+                          <Text style={styles.hostBadgeTxt}>HOST 👑</Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.doneBtn}
+              onPress={() => setOnlineModalVisible(false)}
+            >
+              <Text style={styles.doneBtnTxt}>រួចរាល់ (DONE)</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
+};
+
+const styles = StyleSheet.create({
+  sidebarWrapper: {
+    width: 170,
+    zIndex: 12,
+  },
+  cardContainer: {
+    backgroundColor: 'rgba(10, 15, 20, 0.92)',
+    borderWidth: 2,
+    borderColor: '#D4AF37',
+    borderRadius: 8,
+    padding: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
+    elevation: 8,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 10,
+  },
+  idBadge: {
+    flex: 1.2,
+    borderWidth: 1.5,
+    borderColor: '#F5BA13',
+    borderRadius: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(245, 186, 19, 0.08)',
+  },
+  idText: {
+    color: '#F5BA13',
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  onlineStatusText: {
+    color: '#10B981',
+    fontSize: 8,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  inviteButton: {
+    flex: 0.9,
+    borderWidth: 1.5,
+    borderColor: '#F5BA13',
+    borderRadius: 4,
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(245, 186, 19, 0.15)',
+  },
+  inviteText: {
+    color: '#FFE082',
+    fontWeight: '800',
+    fontSize: 11,
+    letterSpacing: 0.5,
+  },
+  playerSlotsContainer: {
+    gap: 5,
+    marginBottom: 10,
+  },
+  playerSlot: {
+    borderWidth: 1,
+    borderColor: '#8A6818',
+    borderRadius: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    backgroundColor: 'rgba(20, 30, 40, 0.7)',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  emptySlot: {
+    borderColor: 'rgba(138, 104, 24, 0.4)',
+    backgroundColor: 'rgba(15, 20, 25, 0.5)',
+  },
+  activeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#10B981',
+    marginRight: 6,
+  },
+  slotText: {
+    color: '#F5BA13',
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  emptySlotText: {
+    color: 'rgba(245, 186, 19, 0.4)',
+    fontSize: 8.5,
+    fontStyle: 'italic',
+  },
+  startButton: {
+    borderWidth: 1.5,
+    borderColor: '#F5BA13',
+    borderRadius: 4,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(245, 186, 19, 0.12)',
+  },
+  startBtnText: {
+    color: '#F5BA13',
+    fontWeight: '900',
+    fontSize: 11,
+    letterSpacing: 0.8,
+  },
+
+  // Compact floating button for mobile phones
+  compactTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(13, 20, 28, 0.92)',
+    borderWidth: 1.5,
+    borderColor: '#F5BA13',
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 6,
+    zIndex: 15,
+  },
+  compactTriggerText: {
+    color: '#F5BA13',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  compactPlayerCount: {
+    backgroundColor: 'rgba(245, 186, 19, 0.2)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+  },
+  compactCountText: {
+    color: '#FFE082',
+    fontSize: 9.5,
+    fontWeight: '700',
+  },
+
+  // Modal Styles
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  multiplayerCard: {
+    width: '100%',
+    maxWidth: 420,
+    maxHeight: '90%',
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: '#F5BA13',
+    padding: 18,
+    shadowColor: '#F5BA13',
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(245, 186, 19, 0.2)',
+    paddingBottom: 10,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontFamily: FONTS.khmerBold,
+    color: '#F5BA13',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  closeHeaderBtn: {
+    padding: 4,
+  },
+  closeHeaderTxt: {
+    color: '#94A3B8',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  scrollContent: {
+    gap: 12,
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  statusBannerOnline: {
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderColor: '#10B981',
+  },
+  statusBannerLocal: {
+    backgroundColor: 'rgba(245, 186, 19, 0.08)',
+    borderColor: '#F5BA13',
+  },
+  statusBannerIcon: {
+    fontSize: 22,
+  },
+  statusBannerTitle: {
+    color: '#FFE082',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  statusBannerSub: {
+    color: '#94A3B8',
+    fontSize: 9,
+    marginTop: 2,
+    lineHeight: 13,
+  },
+  inputGroup: {
+    gap: 4,
+  },
+  inputLabel: {
+    fontFamily: FONTS.khmerBold,
+    color: '#CBD5E1',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  textInput: {
+    backgroundColor: '#1E293B',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  roomInfoBox: {
+    backgroundColor: 'rgba(245, 186, 19, 0.07)',
+    borderWidth: 1.5,
+    borderColor: '#F5BA13',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+    gap: 6,
+  },
+  roomInfoLabel: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FFE082',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  roomInfoCode: {
+    color: '#FFD700',
+    fontSize: 28,
+    fontWeight: '900',
+    letterSpacing: 4,
+  },
+  copyLinkBtn: {
+    backgroundColor: 'rgba(245, 186, 19, 0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  copyLinkTxt: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FFE082',
+    fontSize: 10.5,
+    fontWeight: '800',
+  },
+  errorBox: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderColor: '#EF4444',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 8,
+  },
+  errorText: {
+    color: '#F87171',
+    fontSize: 11,
+    textAlign: 'center',
+  },
+  actionButtonsCol: {
+    gap: 8,
+  },
+  primaryActionBtn: {
+    backgroundColor: '#F5BA13',
+    paddingVertical: 11,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  primaryActionTxt: {
+    fontFamily: FONTS.khmerBold,
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  joinRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  joinInput: {
+    flex: 1,
+    backgroundColor: '#1E293B',
+    borderWidth: 1.5,
+    borderColor: '#334155',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  joinBtn: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  joinBtnTxt: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 13,
+  },
+  leaveBtn: {
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderColor: '#EF4444',
+    borderWidth: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  leaveBtnTxt: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FCA5A5',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  btnDisabled: {
+    opacity: 0.5,
+  },
+  connectedSection: {
+    marginTop: 4,
+    gap: 6,
+  },
+  connectedTitle: {
+    fontFamily: FONTS.khmerBold,
+    color: '#94A3B8',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  playersList: {
+    gap: 6,
+  },
+  playerListItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  playerListName: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
+  },
+  hostBadge: {
+    backgroundColor: 'rgba(245, 186, 19, 0.2)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  hostBadgeTxt: {
+    color: '#FFD700',
+    fontSize: 9,
+    fontWeight: '900',
+  },
+  doneBtn: {
+    marginTop: 12,
+    backgroundColor: '#334155',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  doneBtnTxt: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+});
