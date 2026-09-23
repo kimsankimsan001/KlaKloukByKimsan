@@ -19,9 +19,10 @@ import { SymbolId } from '../types';
 
 interface Props {
   isCompact?: boolean;
+  onNavigateHome?: () => void;
 }
 
-export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
+export const TablePanel: React.FC<Props> = ({ isCompact = false, onNavigateHome }) => {
   const roomId = useGameStore((state) => state.roomId);
   const roomPin = useGameStore((state) => state.roomPin);
   const tablePlayers = useGameStore((state) => state.tablePlayers);
@@ -204,6 +205,22 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
           {isOnline ? 'ROOM SETTINGS' : 'MULTIPLAYER'}
         </Text>
       </TouchableOpacity>
+
+      {/* Exit to Main Menu Button */}
+      {onNavigateHome && (
+        <TouchableOpacity
+          style={styles.exitToMenuBtn}
+          activeOpacity={0.7}
+          onPress={async () => {
+            if (isOnline) {
+              await leaveOnlineRoomAction();
+            }
+            onNavigateHome();
+          }}
+        >
+          <Text style={styles.exitToMenuBtnTxt}>🏠 ចេញទៅ MAIN MENU</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 
@@ -479,6 +496,21 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
                 </View>
               </View>
             </ScrollView>
+
+            {onNavigateHome && (
+              <TouchableOpacity
+                style={styles.modalExitBtn}
+                onPress={async () => {
+                  setOnlineModalVisible(false);
+                  if (isOnline) {
+                    await leaveOnlineRoomAction();
+                  }
+                  onNavigateHome();
+                }}
+              >
+                <Text style={styles.modalExitBtnTxt}>🚪 ចាកចេញទៅ Main Menu (EXIT)</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.doneBtn}
@@ -1029,7 +1061,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   doneBtn: {
-    marginTop: 12,
+    marginTop: 8,
     backgroundColor: '#334155',
     paddingVertical: 10,
     borderRadius: 8,
@@ -1038,6 +1070,39 @@ const styles = StyleSheet.create({
   doneBtnTxt: {
     fontFamily: FONTS.khmerBold,
     color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  exitToMenuBtn: {
+    marginTop: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exitToMenuBtnTxt: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FCA5A5',
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  modalExitBtn: {
+    marginTop: 10,
+    backgroundColor: 'rgba(239, 68, 68, 0.2)',
+    borderWidth: 1.5,
+    borderColor: '#EF4444',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalExitBtnTxt: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FCA5A5',
     fontSize: 12,
     fontWeight: '800',
   },

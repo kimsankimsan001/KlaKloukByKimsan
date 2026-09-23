@@ -202,7 +202,7 @@ export const GameScreen: React.FC<Props> = ({
             <View style={[styles.boardLayout, isWideScreen && styles.wideLayout]}>
               {/* Left Side: Room/Table Widget */}
               <View style={isWideScreen ? styles.wideSidebar : styles.mobileSidebar}>
-                <TablePanel isCompact={!isWideScreen} />
+                <TablePanel isCompact={!isWideScreen} onNavigateHome={onNavigateHome} />
               </View>
 
               {/* Center Area: Shaker + Live Ticker + 2x3 Betting Grid */}
@@ -315,6 +315,7 @@ export const GameScreen: React.FC<Props> = ({
           visible={showResultModal}
           result={currentResult}
           onClose={closeResultModal}
+          onNavigateHome={onNavigateHome}
           isHost={isHost}
           isOnline={isOnline}
           onlinePlayers={onlinePlayers}

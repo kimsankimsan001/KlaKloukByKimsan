@@ -18,7 +18,8 @@ import { TigerIcon, CalabashIcon, FishIcon } from '../components/AnimalIcons';
 
 interface Props {
   onStartSinglePlayer: () => void;
-  onStartMultiplayer: () => void;
+  onStartCreateTable: () => void;
+  onStartJoinTable: () => void;
   onOpenSettings: () => void;
   onOpenAbout: () => void;
   onOpenHistory?: () => void;
@@ -26,7 +27,8 @@ interface Props {
 
 export const HomeScreen: React.FC<Props> = ({
   onStartSinglePlayer,
-  onStartMultiplayer,
+  onStartCreateTable,
+  onStartJoinTable,
   onOpenSettings,
   onOpenAbout,
   onOpenHistory,
@@ -134,23 +136,44 @@ export const HomeScreen: React.FC<Props> = ({
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
 
-            {/* 2. Multiplayer */}
+            {/* 2. Create Table (Host) */}
             <TouchableOpacity
-              style={[styles.menuCard, styles.multiplayerCard]}
+              style={[styles.menuCard, styles.createTableCard]}
               activeOpacity={0.8}
-              onPress={onStartMultiplayer}
+              onPress={onStartCreateTable}
             >
-              <View style={[styles.menuIconCircle, styles.multiplayerIconCircle]}>
-                <Text style={styles.menuIconText}>🌐</Text>
+              <View style={[styles.menuIconCircle, styles.createTableIconCircle]}>
+                <Text style={styles.menuIconText}>👑</Text>
               </View>
               <View style={styles.menuTextCol}>
                 <View style={styles.liveTagRow}>
-                  <Text style={styles.menuTitleKhmer}>លេងអនឡាញ</Text>
-                  <View style={styles.liveTag}>
-                    <Text style={styles.liveTagTxt}>LIVE</Text>
+                  <Text style={styles.createMenuTitleKhmer}>បង្កើតតុអនឡាញ</Text>
+                  <View style={styles.hostTag}>
+                    <Text style={styles.hostTagTxt}>HOST 👑</Text>
                   </View>
                 </View>
-                <Text style={styles.menuTitleEng}>MULTIPLAYER (ROOMS & PIN)</Text>
+                <Text style={styles.createMenuTitleEng}>CREATE TABLE (SET PIN & DEAL)</Text>
+              </View>
+              <Text style={styles.menuArrow}>›</Text>
+            </TouchableOpacity>
+
+            {/* 3. Join Table (Guest) */}
+            <TouchableOpacity
+              style={[styles.menuCard, styles.joinTableCard]}
+              activeOpacity={0.8}
+              onPress={onStartJoinTable}
+            >
+              <View style={[styles.menuIconCircle, styles.joinTableIconCircle]}>
+                <Text style={styles.menuIconText}>🚪</Text>
+              </View>
+              <View style={styles.menuTextCol}>
+                <View style={styles.liveTagRow}>
+                  <Text style={styles.joinMenuTitleKhmer}>ចូលរួមតុ</Text>
+                  <View style={styles.joinTag}>
+                    <Text style={styles.joinTagTxt}>JOIN 🎲</Text>
+                  </View>
+                </View>
+                <Text style={styles.joinMenuTitleEng}>ENTER 6-DIGIT ROOM ID & PIN</Text>
               </View>
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
@@ -382,10 +405,15 @@ const styles = StyleSheet.create({
     borderColor: '#FFE082',
     shadowColor: '#F5BA13',
   },
-  multiplayerCard: {
+  createTableCard: {
     backgroundColor: '#0F766E',
     borderColor: '#2DD4BF',
     shadowColor: '#0D9488',
+  },
+  joinTableCard: {
+    backgroundColor: '#1E3A8A',
+    borderColor: '#60A5FA',
+    shadowColor: '#2563EB',
   },
   menuIconCircle: {
     width: 44,
@@ -396,8 +424,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 14,
   },
-  multiplayerIconCircle: {
-    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  createTableIconCircle: {
+    backgroundColor: 'rgba(0, 0, 0, 0.28)',
+  },
+  joinTableIconCircle: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
   },
   menuIconText: {
     fontSize: 22,
@@ -419,16 +450,62 @@ const styles = StyleSheet.create({
     marginTop: 1,
     color: '#451A03',
   },
+  createMenuTitleKhmer: {
+    fontFamily: FONTS.khmerBlack,
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#CCFBF1',
+    lineHeight: 24,
+  },
+  createMenuTitleEng: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 1,
+    color: '#5EEAD4',
+  },
+  joinMenuTitleKhmer: {
+    fontFamily: FONTS.khmerBlack,
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#DBEAFE',
+    lineHeight: 24,
+  },
+  joinMenuTitleEng: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 1,
+    color: '#93C5FD',
+  },
   liveTagRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  liveTag: {
-    backgroundColor: '#EF4444',
+  hostTag: {
+    backgroundColor: '#F59E0B',
     paddingHorizontal: 6,
     paddingVertical: 1.5,
     borderRadius: 6,
+  },
+  hostTagTxt: {
+    color: '#451A03',
+    fontSize: 8.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  joinTag: {
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  joinTagTxt: {
+    color: '#FFFFFF',
+    fontSize: 8.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
   },
   liveTagTxt: {
     color: '#FFFFFF',

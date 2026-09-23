@@ -29,6 +29,7 @@ export default function App() {
   const [previousScreen, setPreviousScreen] = useState<ScreenName>('home');
   const [showAbout, setShowAbout] = useState(false);
   const [showMultiplayerModal, setShowMultiplayerModal] = useState(false);
+  const [multiplayerModalMode, setMultiplayerModalMode] = useState<'create' | 'join'>('create');
 
   const initialize = useGameStore((state) => state.initialize);
   const joinOnlineRoomAction = useGameStore((state) => state.joinOnlineRoomAction);
@@ -61,8 +62,19 @@ export default function App() {
     navigateTo('game');
   };
 
-  const handleStartMultiplayer = () => {
+  const handleStartCreateTable = () => {
+    setMultiplayerModalMode('create');
     setShowMultiplayerModal(true);
+  };
+
+  const handleStartJoinTable = () => {
+    setMultiplayerModalMode('join');
+    setShowMultiplayerModal(true);
+  };
+
+  const handleNavigateHome = async () => {
+    await leaveOnlineRoomAction();
+    navigateTo('home');
   };
 
   const renderScreen = () => {
@@ -71,7 +83,8 @@ export default function App() {
         return (
           <HomeScreen
             onStartSinglePlayer={handleStartSinglePlayer}
-            onStartMultiplayer={handleStartMultiplayer}
+            onStartCreateTable={handleStartCreateTable}
+            onStartJoinTable={handleStartJoinTable}
             onOpenSettings={() => navigateTo('settings')}
             onOpenAbout={() => setShowAbout(true)}
             onOpenHistory={() => navigateTo('history')}
@@ -80,7 +93,7 @@ export default function App() {
       case 'game':
         return (
           <GameScreen
-            onNavigateHome={() => navigateTo('home')}
+            onNavigateHome={handleNavigateHome}
             onNavigateHistory={() => navigateTo('history')}
             onNavigateSettings={() => navigateTo('settings')}
           />
@@ -93,7 +106,8 @@ export default function App() {
         return (
           <HomeScreen
             onStartSinglePlayer={handleStartSinglePlayer}
-            onStartMultiplayer={handleStartMultiplayer}
+            onStartCreateTable={handleStartCreateTable}
+            onStartJoinTable={handleStartJoinTable}
             onOpenSettings={() => navigateTo('settings')}
             onOpenAbout={() => setShowAbout(true)}
             onOpenHistory={() => navigateTo('history')}
@@ -109,6 +123,7 @@ export default function App() {
       <AboutModal visible={showAbout} onClose={() => setShowAbout(false)} />
       <MultiplayerEntryModal
         visible={showMultiplayerModal}
+        initialMode={multiplayerModalMode}
         onClose={() => setShowMultiplayerModal(false)}
         onSuccess={() => {
           setShowMultiplayerModal(false);

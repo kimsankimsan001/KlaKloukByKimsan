@@ -18,6 +18,7 @@ interface Props {
   visible: boolean;
   result: RoundResult | null;
   onClose: () => void;
+  onNavigateHome?: () => void;
   isHost?: boolean;
   isOnline?: boolean;
   onlinePlayers?: OnlinePlayer[];
@@ -27,6 +28,7 @@ export const GameResultModal: React.FC<Props> = ({
   visible,
   result,
   onClose,
+  onNavigateHome,
   isHost = false,
   isOnline = false,
   onlinePlayers = [],
@@ -249,6 +251,20 @@ export const GameResultModal: React.FC<Props> = ({
               <Text style={styles.continueKhmer}>លេងជុំបន្ទាប់</Text>
               <Text style={styles.continueEng}>START NEXT ROUND</Text>
             </TouchableOpacity>
+
+            {/* Exit to Main Menu Button */}
+            {onNavigateHome && (
+              <TouchableOpacity
+                style={styles.exitModalBtn}
+                activeOpacity={0.8}
+                onPress={() => {
+                  onClose();
+                  onNavigateHome();
+                }}
+              >
+                <Text style={styles.exitModalBtnTxt}>🏠 ចេញទៅ Main Menu</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </Modal>
@@ -328,6 +344,20 @@ export const GameResultModal: React.FC<Props> = ({
             <Text style={styles.continueKhmer}>លេងបន្ត</Text>
             <Text style={styles.continueEng}>PLAY NEXT ROUND</Text>
           </TouchableOpacity>
+
+          {/* Exit to Main Menu Button */}
+          {onNavigateHome && (
+            <TouchableOpacity
+              style={styles.exitModalBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                onClose();
+                onNavigateHome();
+              }}
+            >
+              <Text style={styles.exitModalBtnTxt}>🏠 ចេញទៅ Main Menu</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </Modal>
@@ -684,5 +714,23 @@ const styles = StyleSheet.create({
     fontSize: 9.5,
     fontWeight: '800',
     letterSpacing: 0.8,
+  },
+  exitModalBtn: {
+    width: '90%',
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+    borderWidth: 1.2,
+    borderColor: 'rgba(239, 68, 68, 0.4)',
+    borderRadius: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+  },
+  exitModalBtnTxt: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FCA5A5',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
 });

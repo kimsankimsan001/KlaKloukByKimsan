@@ -34,7 +34,7 @@ export const CoinDisplay: React.FC<Props> = ({
             activeOpacity={0.7}
             onPress={onNavigateHome}
           >
-            <Text style={styles.menuBtnText}>🏠 MENU</Text>
+            <Text style={styles.menuBtnText}>🏠 មឺនុយ (MENU)</Text>
           </TouchableOpacity>
         )}
         <View style={styles.roundBadge}>
@@ -114,17 +114,17 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   menuBtn: {
-    backgroundColor: 'rgba(245, 186, 19, 0.18)',
-    borderWidth: 1.2,
+    backgroundColor: 'rgba(245, 186, 19, 0.22)',
+    borderWidth: 1.5,
     borderColor: '#F5BA13',
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
   menuBtnText: {
     color: '#FFE082',
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 10.5,
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
   roundBadge: {

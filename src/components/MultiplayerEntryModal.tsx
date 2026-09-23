@@ -14,12 +14,14 @@ import { useGameStore } from '../store/gameStore';
 
 interface Props {
   visible: boolean;
+  initialMode?: 'create' | 'join';
   onClose: () => void;
   onSuccess: () => void;
 }
 
 export const MultiplayerEntryModal: React.FC<Props> = ({
   visible,
+  initialMode = 'create',
   onClose,
   onSuccess,
 }) => {
@@ -28,13 +30,20 @@ export const MultiplayerEntryModal: React.FC<Props> = ({
   const createOnlineRoomAction = useGameStore((state) => state.createOnlineRoomAction);
   const joinOnlineRoomAction = useGameStore((state) => state.joinOnlineRoomAction);
 
-  const [mode, setMode] = useState<'create' | 'join'>('create');
+  const [mode, setMode] = useState<'create' | 'join'>(initialMode);
   const [name, setName] = useState(playerName || '');
   const [pin, setPin] = useState('');
   const [roomIdInput, setRoomIdInput] = useState('');
   const [joinPinInput, setJoinPinInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (visible) {
+      setMode(initialMode);
+      setErrorMsg(null);
+    }
+  }, [visible, initialMode]);
 
   const handleCreateRoom = async () => {
     const trimmedName = name.trim();
