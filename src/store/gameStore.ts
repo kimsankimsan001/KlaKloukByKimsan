@@ -160,8 +160,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   placeBet: (symbol: SymbolId) => {
-    const { balance, currentBets, selectedChip, settings, gamePhase } = get();
+    const { balance, currentBets, selectedChip, settings, gamePhase, isOnline, isHost } = get();
     if (gamePhase !== 'betting') return;
+    if (isOnline && isHost) return; // Host cannot bet for themselves in online multiplayer!
 
     if (balance < selectedChip) {
       Sound.playLoseSound();
@@ -195,8 +196,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   removeBet: (symbol: SymbolId) => {
-    const { balance, currentBets, gamePhase } = get();
+    const { balance, currentBets, gamePhase, isOnline, isHost } = get();
     if (gamePhase !== 'betting') return;
+    if (isOnline && isHost) return;
 
     const currentSymbolBet = currentBets[symbol] || 0;
     if (currentSymbolBet <= 0) return;
@@ -221,8 +223,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   clearBets: () => {
-    const { balance, currentBets, gamePhase } = get();
+    const { balance, currentBets, gamePhase, isOnline, isHost } = get();
     if (gamePhase !== 'betting') return;
+    if (isOnline && isHost) return;
 
     const refundTotal = Object.values(currentBets).reduce((a, b) => a + (b || 0), 0);
     if (refundTotal <= 0) return;
@@ -241,8 +244,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   doubleBets: () => {
-    const { balance, currentBets, gamePhase, settings } = get();
+    const { balance, currentBets, gamePhase, settings, isOnline, isHost } = get();
     if (gamePhase !== 'betting') return;
+    if (isOnline && isHost) return;
 
     const currentTotal = Object.values(currentBets).reduce((a, b) => a + (b || 0), 0);
     if (currentTotal <= 0 || balance < currentTotal) return;
@@ -272,8 +276,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   rebet: () => {
-    const { balance, previousBets, gamePhase } = get();
+    const { balance, previousBets, gamePhase, isOnline, isHost } = get();
     if (gamePhase !== 'betting') return;
+    if (isOnline && isHost) return;
 
     const neededTotal = Object.values(previousBets).reduce((a, b) => a + (b || 0), 0);
     if (neededTotal <= 0 || balance < neededTotal) return;
@@ -408,12 +413,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   claimFreeCoins: () => {
-    const { balance } = get();
-    const bonus = 3000;
-    const newBal = balance + bonus;
-    StorageService.saveWallet(newBal);
-    Sound.playWinFanfare();
-    set({ balance: newBal });
+    // Feature temporarily disabled per user request
   },
 
   resetWallet: () => {

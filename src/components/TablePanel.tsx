@@ -14,6 +14,8 @@ import { COLORS, FONTS } from '../constants/theme';
 import { useGameStore } from '../store/gameStore';
 import { isFirebaseConfigured } from '../services/firebaseConfig';
 import { formatCoins } from '../services/gameLogic';
+import { ALL_SYMBOLS } from '../constants/symbols';
+import { SymbolId } from '../types';
 
 interface Props {
   isCompact?: boolean;
@@ -418,6 +420,28 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
                               ${formatCoins(p.balance || 0)}
                             </Text>
                           </View>
+
+                          {/* Player Active Bets Row */}
+                          {p.bets && Object.values(p.bets).some((v) => v > 0) && (
+                            <View style={styles.playerBetsListRow}>
+                              <Text style={styles.playerBetsListLabel}>ចាក់៖</Text>
+                              {Object.entries(p.bets)
+                                .filter(([_, amt]) => amt && amt > 0)
+                                .map(([symId, amt]) => {
+                                  const symDef = ALL_SYMBOLS[symId as SymbolId];
+                                  return (
+                                    <View key={symId} style={styles.playerBetChipTag}>
+                                      <Text style={styles.playerBetChipSymbol}>
+                                        {symDef?.nameKhmer || symId}:
+                                      </Text>
+                                      <Text style={styles.playerBetChipAmount}>
+                                        ${formatCoins(amt)}
+                                      </Text>
+                                    </View>
+                                  );
+                                })}
+                            </View>
+                          )}
 
                           {/* Host Coin Grant Controls */}
                           {isHost && !isPlayerHost ? (
@@ -920,6 +944,41 @@ const styles = StyleSheet.create({
   playerBalanceAmount: {
     color: '#FFE082',
     fontSize: 12,
+    fontWeight: '800',
+  },
+  playerBetsListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    padding: 4,
+    borderRadius: 6,
+  },
+  playerBetsListLabel: {
+    fontFamily: FONTS.khmerBold,
+    color: '#94A3B8',
+    fontSize: 9.5,
+  },
+  playerBetChipTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: 'rgba(2, 132, 199, 0.25)',
+    borderWidth: 1,
+    borderColor: '#38BDF8',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  playerBetChipSymbol: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FFE082',
+    fontSize: 9,
+  },
+  playerBetChipAmount: {
+    color: '#34D399',
+    fontSize: 9,
     fontWeight: '800',
   },
   grantCoinsRow: {

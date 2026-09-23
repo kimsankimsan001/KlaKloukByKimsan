@@ -6,7 +6,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { GameScreen } from './src/screens/GameScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
-import { RulesModal } from './src/screens/RulesModal';
+import { AboutModal } from './src/components/AboutModal';
 
 import {
   useFonts,
@@ -24,11 +24,13 @@ export default function App() {
     Hanuman_900Black,
   });
 
-  const [currentScreen, setCurrentScreen] = useState<ScreenName>('game'); // Defaults directly to table matching reference
-  const [showRules, setShowRules] = useState(false);
+  const [currentScreen, setCurrentScreen] = useState<ScreenName>('home'); // Boots into Main Menu per user request!
+  const [previousScreen, setPreviousScreen] = useState<ScreenName>('home');
+  const [showAbout, setShowAbout] = useState(false);
 
   const initialize = useGameStore((state) => state.initialize);
   const joinOnlineRoomAction = useGameStore((state) => state.joinOnlineRoomAction);
+  const leaveOnlineRoomAction = useGameStore((state) => state.leaveOnlineRoomAction);
 
   useEffect(() => {
     if (typeof document !== 'undefined') {
@@ -40,40 +42,59 @@ export default function App() {
         const roomParam = params.get('room');
         if (roomParam) {
           joinOnlineRoomAction(roomParam);
+          setCurrentScreen('game');
         }
       }
     });
   }, [initialize, joinOnlineRoomAction]);
+
+  const navigateTo = (next: ScreenName) => {
+    setPreviousScreen(currentScreen);
+    setCurrentScreen(next);
+  };
+
+  const handleStartSinglePlayer = () => {
+    // Leave online room if previously joined, to ensure pure single player
+    leaveOnlineRoomAction();
+    navigateTo('game');
+  };
+
+  const handleStartMultiplayer = () => {
+    navigateTo('game');
+  };
 
   const renderScreen = () => {
     switch (currentScreen) {
       case 'home':
         return (
           <HomeScreen
-            onStartGame={() => setCurrentScreen('game')}
-            onOpenHistory={() => setCurrentScreen('history')}
-            onOpenSettings={() => setCurrentScreen('settings')}
-            onOpenRules={() => setShowRules(true)}
+            onStartSinglePlayer={handleStartSinglePlayer}
+            onStartMultiplayer={handleStartMultiplayer}
+            onOpenSettings={() => navigateTo('settings')}
+            onOpenAbout={() => setShowAbout(true)}
+            onOpenHistory={() => navigateTo('history')}
           />
         );
       case 'game':
         return (
           <GameScreen
-            onNavigateHome={() => setCurrentScreen('home')}
-            onNavigateHistory={() => setCurrentScreen('history')}
-            onNavigateSettings={() => setCurrentScreen('settings')}
+            onNavigateHome={() => navigateTo('home')}
+            onNavigateHistory={() => navigateTo('history')}
+            onNavigateSettings={() => navigateTo('settings')}
           />
         );
       case 'history':
-        return <HistoryScreen onBack={() => setCurrentScreen('game')} />;
+        return <HistoryScreen onBack={() => navigateTo(previousScreen || 'home')} />;
       case 'settings':
-        return <SettingsScreen onBack={() => setCurrentScreen('game')} />;
+        return <SettingsScreen onBack={() => navigateTo(previousScreen || 'home')} />;
       default:
         return (
-          <GameScreen
-            onNavigateHome={() => setCurrentScreen('home')}
-            onNavigateHistory={() => setCurrentScreen('history')}
-            onNavigateSettings={() => setCurrentScreen('settings')}
+          <HomeScreen
+            onStartSinglePlayer={handleStartSinglePlayer}
+            onStartMultiplayer={handleStartMultiplayer}
+            onOpenSettings={() => navigateTo('settings')}
+            onOpenAbout={() => setShowAbout(true)}
+            onOpenHistory={() => navigateTo('history')}
           />
         );
     }
@@ -83,7 +104,7 @@ export default function App() {
     <View style={styles.container}>
       <StatusBar style="light" />
       {renderScreen()}
-      <RulesModal visible={showRules} onClose={() => setShowRules(false)} />
+      <AboutModal visible={showAbout} onClose={() => setShowAbout(false)} />
     </View>
   );
 }

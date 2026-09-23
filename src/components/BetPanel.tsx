@@ -22,6 +22,7 @@ interface Props {
   onStartRoll: () => void;
   canRebet: boolean;
   isRolling: boolean;
+  totalRoomBets?: number;
 }
 
 export const BetPanel: React.FC<Props> = ({
@@ -35,117 +36,137 @@ export const BetPanel: React.FC<Props> = ({
   onStartRoll,
   canRebet,
   isRolling,
+  totalRoomBets = 0,
 }) => {
   const isOnline = useGameStore((state) => state.isOnline);
   const isHost = useGameStore((state) => state.isHost);
   const hasBets = totalBetAmount > 0;
-  const canStart = hasBets && !isRolling;
+  // If host in online mode, host can start roll anytime not rolling
+  const canStart = isOnline && isHost ? !isRolling : hasBets && !isRolling;
 
   return (
     <View style={styles.container}>
-      {/* Chip Selector Row */}
-      <View style={styles.chipRow}>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.chipScrollContent}
-        >
-          {CHIP_VALUES.map((chip) => {
-            const isSelected = selectedChip === chip;
-            const chipStyle = CHIP_COLORS[chip];
-            const canAfford = balance >= chip;
+      {/* Chip Selector Row or Dealer Control Banner */}
+      {isOnline && isHost ? (
+        <View style={styles.dealerBanner}>
+          <View style={styles.dealerTitleRow}>
+            <Text style={styles.dealerBadge}>👑 លោកអ្នកជាមេ (DEALER)</Text>
+            <Text style={styles.dealerSub}>អ្នកធ្វើមេ មិនអាចចាក់ខ្លួនឯងបានទេ</Text>
+          </View>
+          <View style={styles.dealerTotalPill}>
+            <Text style={styles.dealerTotalLabel}>កូនៗចាក់សរុប:</Text>
+            <Text style={styles.dealerTotalAmount}>
+              ${formatCoins(totalRoomBets)}
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.chipRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.chipScrollContent}
+          >
+            {CHIP_VALUES.map((chip) => {
+              const isSelected = selectedChip === chip;
+              const chipStyle = CHIP_COLORS[chip];
+              const canAfford = balance >= chip;
 
-            return (
-              <TouchableOpacity
-                key={`chip-${chip}`}
-                activeOpacity={0.7}
-                disabled={isRolling}
-                onPress={() => onSelectChip(chip)}
-                style={[
-                  styles.chipTouch,
-                  isSelected && styles.chipSelected,
-                  !canAfford && styles.chipDisabled,
-                ]}
-              >
-                {/* Circular Golden Glow Ring for Selected Coin */}
-                {isSelected && (
-                  <View style={styles.circularGlowRing} pointerEvents="none" />
-                )}
-
-                <Svg width={48} height={48} viewBox="0 0 100 100">
-                  {/* Outer Chip Rim */}
-                  <Circle
-                    cx="50"
-                    cy="50"
-                    r="47"
-                    fill={chipStyle.bg}
-                    stroke={isSelected ? '#FFE082' : chipStyle.border}
-                    strokeWidth={isSelected ? 5 : 3}
-                  />
-
-                  {/* Golden Selection Aura Ring */}
+              return (
+                <TouchableOpacity
+                  key={`chip-${chip}`}
+                  activeOpacity={0.7}
+                  disabled={isRolling}
+                  onPress={() => onSelectChip(chip)}
+                  style={[
+                    styles.chipTouch,
+                    isSelected && styles.chipSelected,
+                    !canAfford && styles.chipDisabled,
+                  ]}
+                >
+                  {/* Circular Golden Glow Ring for Selected Coin */}
                   {isSelected && (
+                    <View style={styles.circularGlowRing} pointerEvents="none" />
+                  )}
+
+                  <Svg width={48} height={48} viewBox="0 0 100 100">
+                    {/* Outer Chip Rim */}
                     <Circle
                       cx="50"
                       cy="50"
-                      r="45"
-                      fill="none"
-                      stroke="#FFD700"
-                      strokeWidth="3"
+                      r="47"
+                      fill={chipStyle.bg}
+                      stroke={isSelected ? '#FFE082' : chipStyle.border}
+                      strokeWidth={isSelected ? 5 : 3}
                     />
-                  )}
 
-                  {/* Striped Poker Chip Edge notches */}
-                  {Array.from({ length: 12 }).map((_, i) => {
-                    const angle = (i * 30 * Math.PI) / 180;
-                    const x = 50 + 40 * Math.cos(angle);
-                    const y = 50 + 40 * Math.sin(angle);
-                    return (
+                    {/* Golden Selection Aura Ring */}
+                    {isSelected && (
                       <Circle
-                        key={i}
-                        cx={x}
-                        cy={y}
-                        r="3.5"
-                        fill="#FFFFFF"
-                        opacity={0.85}
+                        cx="50"
+                        cy="50"
+                        r="45"
+                        fill="none"
+                        stroke="#FFD700"
+                        strokeWidth="3"
                       />
-                    );
-                  })}
+                    )}
 
-                  {/* Inner Dashed Ring */}
-                  <Circle
-                    cx="50"
-                    cy="50"
-                    r="34"
-                    fill="none"
-                    stroke="#FFFFFF"
-                    strokeWidth="2"
-                    strokeDasharray="4,4"
-                    opacity={0.7}
-                  />
+                    {/* Striped Poker Chip Edge notches */}
+                    {Array.from({ length: 12 }).map((_, i) => {
+                      const angle = (i * 30 * Math.PI) / 180;
+                      const x = 50 + 40 * Math.cos(angle);
+                      const y = 50 + 40 * Math.sin(angle);
+                      return (
+                        <Circle
+                          key={i}
+                          cx={x}
+                          cy={y}
+                          r="3.5"
+                          fill="#FFFFFF"
+                          opacity={0.85}
+                        />
+                      );
+                    })}
 
-                  {/* Inner Core */}
-                  <Circle cx="50" cy="50" r="28" fill={chipStyle.bg} />
-                </Svg>
+                    {/* Inner Dashed Ring */}
+                    <Circle
+                      cx="50"
+                      cy="50"
+                      r="34"
+                      fill="none"
+                      stroke="#FFFFFF"
+                      strokeWidth="2"
+                      strokeDasharray="4,4"
+                      opacity={0.7}
+                    />
 
-                {/* Denomination Value */}
-                <View style={[styles.chipTextWrapper, { pointerEvents: 'none' as any }]}>
-                  <Text style={[styles.chipText, { color: chipStyle.text }]}>
-                    {chip >= 1000 ? `${chip / 1000}K` : chip}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
+                    {/* Inner Core */}
+                    <Circle cx="50" cy="50" r="28" fill={chipStyle.bg} />
+                  </Svg>
+
+                  {/* Denomination Value */}
+                  <View style={[styles.chipTextWrapper, { pointerEvents: 'none' as any }]}>
+                    <Text style={[styles.chipText, { color: chipStyle.text }]}>
+                      {chip >= 1000 ? `${chip / 1000}K` : chip}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
 
       {/* Action Utilities & Grand Start Button */}
       <View style={styles.actionsRow}>
-        {/* Clear Button */}
+        {/* Clear Button (disabled for host) */}
         <TouchableOpacity
-          style={[styles.utilButton, (!hasBets || isRolling) && styles.btnDisabled]}
-          disabled={!hasBets || isRolling}
+          style={[
+            styles.utilButton,
+            (!hasBets || isRolling || (isOnline && isHost)) && styles.btnDisabled,
+          ]}
+          disabled={!hasBets || isRolling || (isOnline && isHost)}
           onPress={onClear}
         >
           <Text style={styles.utilBtnText}>CLEAR</Text>
@@ -172,22 +193,28 @@ export const BetPanel: React.FC<Props> = ({
             activeOpacity={0.8}
             onPress={onStartRoll}
           >
-            <Text style={styles.startKhmerText}>ចាប់ផ្តើម</Text>
-            {totalBetAmount > 0 && (
+            <Text style={styles.startKhmerText}>
+              {isOnline && isHost ? 'ចាប់ផ្តើមក្រឡុក' : 'ចាប់ផ្តើម'}
+            </Text>
+            {isOnline && isHost ? (
+              <Text style={styles.startBetSub}>
+                {totalRoomBets > 0 ? `កូនចាក់: $${formatCoins(totalRoomBets)}` : 'SHAKE & ROLL'}
+              </Text>
+            ) : totalBetAmount > 0 ? (
               <Text style={styles.startBetSub}>
                 ${formatCoins(totalBetAmount)}
               </Text>
-            )}
+            ) : null}
           </TouchableOpacity>
         )}
 
-        {/* Double / Rebet Button */}
+        {/* Double / Rebet Button (disabled for host) */}
         <TouchableOpacity
           style={[
             styles.utilButton,
-            (!hasBets && !canRebet) || isRolling ? styles.btnDisabled : null,
+            ((!hasBets && !canRebet) || isRolling || (isOnline && isHost)) ? styles.btnDisabled : null,
           ]}
-          disabled={(!hasBets && !canRebet) || isRolling}
+          disabled={(!hasBets && !canRebet) || isRolling || (isOnline && isHost)}
           onPress={hasBets ? onDouble : onRebet}
         >
           <Text style={styles.utilBtnText}>{hasBets ? '2X' : 'REBET'}</Text>
@@ -204,6 +231,57 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     alignItems: 'center',
     width: '100%',
+  },
+  dealerBanner: {
+    height: 64,
+    marginBottom: 6,
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+    borderWidth: 2,
+    borderColor: '#F5BA13',
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  dealerTitleRow: {
+    justifyContent: 'center',
+  },
+  dealerBadge: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FFE082',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  dealerSub: {
+    color: '#94A3B8',
+    fontSize: 10,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  dealerTotalPill: {
+    backgroundColor: 'rgba(245, 186, 19, 0.15)',
+    borderWidth: 1.5,
+    borderColor: '#F5BA13',
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignItems: 'flex-end',
+  },
+  dealerTotalLabel: {
+    fontFamily: FONTS.khmerRegular,
+    color: '#CBD5E1',
+    fontSize: 9,
+    fontWeight: '700',
+  },
+  dealerTotalAmount: {
+    color: '#FFD700',
+    fontSize: 14,
+    fontWeight: '900',
+    letterSpacing: 0.5,
   },
   chipRow: {
     height: 70,

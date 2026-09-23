@@ -17,19 +17,21 @@ import { COLORS, FONTS } from '../constants/theme';
 import { TigerIcon, CalabashIcon, FishIcon } from '../components/AnimalIcons';
 
 interface Props {
-  onStartGame: () => void;
-  onOpenHistory: () => void;
+  onStartSinglePlayer: () => void;
+  onStartMultiplayer: () => void;
   onOpenSettings: () => void;
-  onOpenRules: () => void;
+  onOpenAbout: () => void;
+  onOpenHistory?: () => void;
 }
 
 export const HomeScreen: React.FC<Props> = ({
-  onStartGame,
-  onOpenHistory,
+  onStartSinglePlayer,
+  onStartMultiplayer,
   onOpenSettings,
-  onOpenRules,
+  onOpenAbout,
+  onOpenHistory,
 }) => {
-  const { balance, stats, claimFreeCoins } = useGameStore();
+  const { balance, stats } = useGameStore();
 
   const winRate =
     stats.totalRounds > 0
@@ -94,15 +96,6 @@ export const HomeScreen: React.FC<Props> = ({
               <Text style={styles.balanceText}>{formatCoins(balance)}</Text>
               <Text style={styles.coinsSuffix}>COINS</Text>
             </View>
-
-            {/* Quick Free Bonus Refill */}
-            <TouchableOpacity
-              style={styles.claimBonusBtn}
-              activeOpacity={0.8}
-              onPress={claimFreeCoins}
-            >
-              <Text style={styles.claimBonusText}>+3,000 FREE COINS</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Quick Player Stats */}
@@ -123,50 +116,80 @@ export const HomeScreen: React.FC<Props> = ({
             </View>
           </View>
 
-          {/* Main Action Buttons */}
-          <View style={styles.buttonsContainer}>
-            {/* Play Button */}
+          {/* 4 Main Menu Action Cards */}
+          <View style={styles.menuCardsContainer}>
+            {/* 1. Single Player */}
             <TouchableOpacity
-              style={styles.playButton}
+              style={[styles.menuCard, styles.singlePlayerCard]}
               activeOpacity={0.8}
-              onPress={onStartGame}
+              onPress={onStartSinglePlayer}
             >
-              <Text style={styles.playKhmer}>ចូលលេងហ្គេម</Text>
-              <Text style={styles.playEng}>START GAME</Text>
+              <View style={styles.menuIconCircle}>
+                <Text style={styles.menuIconText}>🎲</Text>
+              </View>
+              <View style={styles.menuTextCol}>
+                <Text style={styles.menuTitleKhmer}>លេងម្នាក់ឯង</Text>
+                <Text style={styles.menuTitleEng}>SINGLE PLAYER (OFFLINE)</Text>
+              </View>
+              <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
 
-            {/* Secondary Buttons Row */}
-            <View style={styles.navRow}>
-              <TouchableOpacity
-                style={styles.navBtn}
-                activeOpacity={0.8}
-                onPress={onOpenHistory}
-              >
-                <Text style={styles.navIcon}>📜</Text>
-                <Text style={styles.navTitle}>ប្រវត្តិលេង</Text>
-                <Text style={styles.navSub}>HISTORY</Text>
-              </TouchableOpacity>
+            {/* 2. Multiplayer */}
+            <TouchableOpacity
+              style={[styles.menuCard, styles.multiplayerCard]}
+              activeOpacity={0.8}
+              onPress={onStartMultiplayer}
+            >
+              <View style={[styles.menuIconCircle, styles.multiplayerIconCircle]}>
+                <Text style={styles.menuIconText}>🌐</Text>
+              </View>
+              <View style={styles.menuTextCol}>
+                <View style={styles.liveTagRow}>
+                  <Text style={styles.menuTitleKhmer}>លេងអនឡាញ</Text>
+                  <View style={styles.liveTag}>
+                    <Text style={styles.liveTagTxt}>LIVE</Text>
+                  </View>
+                </View>
+                <Text style={styles.menuTitleEng}>MULTIPLAYER (ROOMS & PIN)</Text>
+              </View>
+              <Text style={styles.menuArrow}>›</Text>
+            </TouchableOpacity>
 
+            {/* 3 & 4: Setting and About in a 2-column Grid */}
+            <View style={styles.secondaryMenuRow}>
+              {/* Setting */}
               <TouchableOpacity
-                style={styles.navBtn}
-                activeOpacity={0.8}
-                onPress={onOpenRules}
-              >
-                <Text style={styles.navIcon}>📖</Text>
-                <Text style={styles.navTitle}>របៀបលេង</Text>
-                <Text style={styles.navSub}>RULES</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.navBtn}
+                style={[styles.menuSmallCard, styles.settingCard]}
                 activeOpacity={0.8}
                 onPress={onOpenSettings}
               >
-                <Text style={styles.navIcon}>⚙️</Text>
-                <Text style={styles.navTitle}>ការកំណត់</Text>
-                <Text style={styles.navSub}>SETTINGS</Text>
+                <Text style={styles.smallCardIcon}>⚙️</Text>
+                <Text style={styles.smallCardTitle}>ការកំណត់</Text>
+                <Text style={styles.smallCardSub}>SETTING</Text>
+              </TouchableOpacity>
+
+              {/* About */}
+              <TouchableOpacity
+                style={[styles.menuSmallCard, styles.aboutCard]}
+                activeOpacity={0.8}
+                onPress={onOpenAbout}
+              >
+                <Text style={styles.smallCardIcon}>📖</Text>
+                <Text style={styles.smallCardTitle}>អំពីហ្គេម</Text>
+                <Text style={styles.smallCardSub}>ABOUT & RULES</Text>
               </TouchableOpacity>
             </View>
+
+            {/* History Link Button */}
+            {onOpenHistory && (
+              <TouchableOpacity
+                style={styles.historyLinkBtn}
+                activeOpacity={0.7}
+                onPress={onOpenHistory}
+              >
+                <Text style={styles.historyLinkTxt}>📜 មើលប្រវត្តិលេងកន្លងមក (GAME HISTORY)</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Developer Credit */}
@@ -334,76 +357,149 @@ const styles = StyleSheet.create({
     marginTop: 2,
     letterSpacing: 0.5,
   },
-  buttonsContainer: {
+  menuCardsContainer: {
     width: '100%',
     maxWidth: 360,
     marginTop: 12,
-    gap: 12,
+    gap: 10,
   },
-  playButton: {
+  menuCard: {
     width: '100%',
-    backgroundColor: '#F5BA13',
-    borderRadius: 14,
-    paddingVertical: 14,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  singlePlayerCard: {
+    backgroundColor: 'rgba(245, 186, 19, 0.95)',
     borderColor: '#FFE082',
     shadowColor: '#F5BA13',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.7,
-    shadowRadius: 10,
-    elevation: 8,
   },
-  playKhmer: {
-    fontFamily: FONTS.khmerBlack,
-    color: '#451A03',
+  multiplayerCard: {
+    backgroundColor: '#0F766E',
+    borderColor: '#2DD4BF',
+    shadowColor: '#0D9488',
+  },
+  menuIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  multiplayerIconCircle: {
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+  menuIconText: {
     fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: 0.5,
   },
-  playEng: {
-    color: '#78350F',
-    fontSize: 11,
-    fontWeight: '900',
-    letterSpacing: 1.5,
+  menuTextCol: {
+    flex: 1,
   },
-  navRow: {
+  menuTitleKhmer: {
+    fontFamily: FONTS.khmerBlack,
+    fontSize: 19,
+    fontWeight: '900',
+    color: '#1E293B',
+    lineHeight: 24,
+  },
+  menuTitleEng: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 1,
+    color: '#451A03',
+  },
+  liveTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  liveTag: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+  },
+  liveTagTxt: {
+    color: '#FFFFFF',
+    fontSize: 8.5,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  menuArrow: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 26,
+    fontWeight: '800',
+    marginLeft: 6,
+  },
+  secondaryMenuRow: {
     flexDirection: 'row',
     gap: 10,
     width: '100%',
   },
-  navBtn: {
+  menuSmallCard: {
     flex: 1,
     backgroundColor: '#1E293B',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#D4AF37',
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.4,
+    shadowRadius: 4,
   },
-  navIcon: {
-    fontSize: 20,
-    marginBottom: 2,
+  settingCard: {
+    borderColor: '#D4AF37',
   },
-  navTitle: {
+  aboutCard: {
+    borderColor: '#818CF8',
+  },
+  smallCardIcon: {
+    fontSize: 22,
+    marginBottom: 4,
+  },
+  smallCardTitle: {
     fontFamily: FONTS.khmerBold,
     color: '#FFE082',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
   },
-  navSub: {
+  smallCardSub: {
     color: '#94A3B8',
     fontSize: 9,
     fontWeight: '700',
-    marginTop: 1,
+    marginTop: 2,
     letterSpacing: 0.5,
+  },
+  historyLinkBtn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginTop: 2,
+  },
+  historyLinkTxt: {
+    color: '#FFE082',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    textDecorationLine: 'underline',
   },
   devCreditWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 22,
+    marginTop: 18,
     paddingVertical: 8,
     paddingHorizontal: 18,
     borderRadius: 16,

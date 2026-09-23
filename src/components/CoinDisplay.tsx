@@ -7,27 +7,39 @@ import { formatCoins } from '../services/gameLogic';
 interface Props {
   balance: number;
   roundNumber: number;
-  onClaimFreeCoins: () => void;
+  onClaimFreeCoins?: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
   onOpenHistory?: () => void;
   onOpenSettings?: () => void;
+  onNavigateHome?: () => void;
 }
 
 export const CoinDisplay: React.FC<Props> = ({
   balance,
   roundNumber,
-  onClaimFreeCoins,
   soundEnabled,
   onToggleSound,
   onOpenHistory,
   onOpenSettings,
+  onNavigateHome,
 }) => {
   return (
     <View style={styles.topBar}>
-      {/* Left: Round Badge */}
-      <View style={styles.roundBadge}>
-        <Text style={styles.roundText}>ROUND #{roundNumber}</Text>
+      {/* Left: Home Menu Button & Round Badge */}
+      <View style={styles.leftGroup}>
+        {onNavigateHome && (
+          <TouchableOpacity
+            style={styles.menuBtn}
+            activeOpacity={0.7}
+            onPress={onNavigateHome}
+          >
+            <Text style={styles.menuBtnText}>🏠 MENU</Text>
+          </TouchableOpacity>
+        )}
+        <View style={styles.roundBadge}>
+          <Text style={styles.roundText}>ROUND #{roundNumber}</Text>
+        </View>
       </View>
 
       {/* Center: Coin Balance Display */}
@@ -50,17 +62,6 @@ export const CoinDisplay: React.FC<Props> = ({
         </Svg>
 
         <Text style={styles.balanceAmount}>{formatCoins(balance)}</Text>
-
-        {/* Free Coins Refill Button if balance <= 1000 */}
-        {balance <= 1000 && (
-          <TouchableOpacity
-            style={styles.refillBtn}
-            activeOpacity={0.7}
-            onPress={onClaimFreeCoins}
-          >
-            <Text style={styles.refillBtnText}>+FREE</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       {/* Right: Quick Action Icons */}
@@ -106,6 +107,25 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     zIndex: 14,
     width: '100%',
+  },
+  leftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  menuBtn: {
+    backgroundColor: 'rgba(245, 186, 19, 0.18)',
+    borderWidth: 1.2,
+    borderColor: '#F5BA13',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  menuBtnText: {
+    color: '#FFE082',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   roundBadge: {
     backgroundColor: 'rgba(15, 23, 42, 0.85)',
