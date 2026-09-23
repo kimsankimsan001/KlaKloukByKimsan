@@ -315,6 +315,9 @@ export const GameScreen: React.FC<Props> = ({
           visible={showResultModal}
           result={currentResult}
           onClose={closeResultModal}
+          isHost={isHost}
+          isOnline={isOnline}
+          onlinePlayers={onlinePlayers}
         />
         </View>
       </ImageBackground>

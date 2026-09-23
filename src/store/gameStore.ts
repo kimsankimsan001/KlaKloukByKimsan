@@ -18,6 +18,7 @@ import {
   leaveOnlineRoom,
   subscribeToOnlineRoom,
   updatePlayerBetsOnline,
+  updatePlayerBalanceOnline,
   broadcastDiceRollOnline,
   broadcastFinishRoundOnline,
   giveCoinsToPlayerOnline,
@@ -191,7 +192,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     if (get().isOnline) {
-      updatePlayerBetsOnline(get().roomId, get().playerId, newBets);
+      updatePlayerBetsOnline(get().roomId, get().playerId, newBets, newBalance);
     }
   },
 
@@ -208,17 +209,18 @@ export const useGameStore = create<GameState>((set, get) => ({
     delete newBets[symbol];
 
     const newTotalBet = Object.values(newBets).reduce((a, b) => a + (b || 0), 0);
+    const newBal = balance + refundAmount;
 
     Sound.playButtonClick();
 
     set({
       currentBets: newBets,
-      balance: balance + refundAmount,
+      balance: newBal,
       totalBetAmount: newTotalBet,
     });
 
     if (get().isOnline) {
-      updatePlayerBetsOnline(get().roomId, get().playerId, newBets);
+      updatePlayerBetsOnline(get().roomId, get().playerId, newBets, newBal);
     }
   },
 
@@ -230,16 +232,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     const refundTotal = Object.values(currentBets).reduce((a, b) => a + (b || 0), 0);
     if (refundTotal <= 0) return;
 
+    const newBal = balance + refundTotal;
     Sound.playButtonClick();
 
     set({
       currentBets: {},
-      balance: balance + refundTotal,
+      balance: newBal,
       totalBetAmount: 0,
     });
 
     if (get().isOnline) {
-      updatePlayerBetsOnline(get().roomId, get().playerId, {});
+      updatePlayerBetsOnline(get().roomId, get().playerId, {}, newBal);
     }
   },
 
@@ -262,16 +265,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     const cost = newTotal - currentTotal;
     if (balance < cost) return;
 
+    const newBal = balance - cost;
     Sound.playChipBet();
 
     set({
       currentBets: doubledBets,
-      balance: balance - cost,
+      balance: newBal,
       totalBetAmount: newTotal,
     });
 
     if (get().isOnline) {
-      updatePlayerBetsOnline(get().roomId, get().playerId, doubledBets);
+      updatePlayerBetsOnline(get().roomId, get().playerId, doubledBets, newBal);
     }
   },
 
@@ -285,17 +289,18 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const { currentBets } = get();
     const currentRefund = Object.values(currentBets).reduce((a, b) => a + (b || 0), 0);
+    const newBal = balance + currentRefund - neededTotal;
 
     Sound.playChipBet();
 
     set({
       currentBets: { ...previousBets },
-      balance: balance + currentRefund - neededTotal,
+      balance: newBal,
       totalBetAmount: neededTotal,
     });
 
     if (get().isOnline) {
-      updatePlayerBetsOnline(get().roomId, get().playerId, previousBets);
+      updatePlayerBetsOnline(get().roomId, get().playerId, previousBets, newBal);
     }
   },
 
@@ -346,22 +351,36 @@ export const useGameStore = create<GameState>((set, get) => ({
       // 3. Finalize round result
       const roundResult = calculateRoundResult(roundNumber, prevBets, targetDice);
 
-      const { balance, stats, history } = get();
-      const updatedBalance = balance + roundResult.totalPayout;
+      const { balance, stats, history, isOnline, isHost, onlinePlayers } = get();
+      let finalBalance = balance + roundResult.totalPayout;
+      let hostNet = 0;
+
+      if (isOnline && isHost) {
+        // Dealer settlement: Host collects all losing bets and pays out winnings
+        const guests = (onlinePlayers || []).filter((p) => !p.isHost);
+        hostNet = guests.reduce((acc, p) => {
+          if (!p.bets || Object.keys(p.bets).length === 0) return acc;
+          const pRes = calculateRoundResult(roundNumber, p.bets, targetDice);
+          return acc - pRes.netProfit;
+        }, 0);
+        finalBalance = Math.max(0, balance + hostNet);
+      }
 
       // Update statistics
-      const newWon = stats.roundsWon + (roundResult.isWin ? 1 : 0);
-      const newLost = stats.roundsLost + (roundResult.isWin ? 0 : 1);
-      const newStreak = roundResult.isWin ? stats.currentStreak + 1 : 0;
+      const isRoundWin = isOnline && isHost ? hostNet > 0 : roundResult.isWin;
+      const roundNetWon = isOnline && isHost ? hostNet : roundResult.netProfit;
+      const newWon = stats.roundsWon + (isRoundWin ? 1 : 0);
+      const newLost = stats.roundsLost + (isRoundWin ? 0 : 1);
+      const newStreak = isRoundWin ? stats.currentStreak + 1 : 0;
       const bestStreak = Math.max(stats.bestStreak, newStreak);
-      const maxWin = Math.max(stats.maxWinSingleRound, roundResult.netProfit);
+      const maxWin = Math.max(stats.maxWinSingleRound, roundNetWon);
 
       const newStats: PlayerStats = {
         totalRounds: stats.totalRounds + 1,
         roundsWon: newWon,
         roundsLost: newLost,
         totalBetAmount: stats.totalBetAmount + roundResult.totalBet,
-        totalWonAmount: stats.totalWonAmount + Math.max(0, roundResult.netProfit),
+        totalWonAmount: stats.totalWonAmount + Math.max(0, roundNetWon),
         maxWinSingleRound: maxWin,
         currentStreak: newStreak,
         bestStreak: bestStreak,
@@ -370,29 +389,41 @@ export const useGameStore = create<GameState>((set, get) => ({
       const newHistory = [roundResult, ...history.slice(0, 49)];
 
       // Persist to storage
-      StorageService.saveWallet(updatedBalance);
+      StorageService.saveWallet(finalBalance);
       StorageService.saveStats(newStats);
       StorageService.saveHistory(newHistory);
 
-      if (roundResult.isWin) {
-        Sound.playWinFanfare();
-      } else if (roundResult.totalBet > 0) {
-        Sound.playLoseSound();
+      if (isOnline && isHost) {
+        if (hostNet > 0) {
+          Sound.playWinFanfare();
+        } else if (hostNet < 0) {
+          Sound.playLoseSound();
+        }
+      } else {
+        if (roundResult.isWin) {
+          Sound.playWinFanfare();
+        } else if (roundResult.totalBet > 0) {
+          Sound.playLoseSound();
+        }
       }
 
       set({
         gamePhase: 'result',
         currentResult: roundResult,
-        balance: updatedBalance,
+        balance: finalBalance,
         stats: newStats,
         history: newHistory,
         showResultModal: true,
       });
+
+      if (get().isOnline) {
+        updatePlayerBalanceOnline(get().roomId, get().playerId, finalBalance);
+      }
     }, 1500);
   },
 
   closeResultModal: () => {
-    const { roundNumber, isOnline, isHost, roomId } = get();
+    const { roundNumber, isOnline, isHost, roomId, balance } = get();
     Sound.playButtonClick();
     const nextRound = roundNumber + 1;
 
@@ -405,7 +436,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     if (isOnline) {
-      updatePlayerBetsOnline(roomId, get().playerId, {});
+      updatePlayerBetsOnline(roomId, get().playerId, {}, balance);
       if (isHost) {
         broadcastFinishRoundOnline(roomId, nextRound);
       }
@@ -572,6 +603,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       roomUnsubscribe = null;
     }
     await leaveOnlineRoom(roomId, playerId);
+    const localWallet = await StorageService.getWallet();
 
     set({
       isOnline: false,
@@ -580,6 +612,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       roomPin: '',
       tablePlayers: ['Sokha', 'Dara', 'Chantrea', 'Bopha'],
       onlinePlayers: [],
+      balance: localWallet,
       currentBets: {},
       totalBetAmount: 0,
       lastHandledRollId: null,

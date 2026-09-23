@@ -18,14 +18,7 @@ interface Props {
 }
 
 export const SettingsScreen: React.FC<Props> = ({ onBack }) => {
-  const { settings, updateSettings, resetWallet } = useGameStore();
-
-  const handleResetWallet = () => {
-    resetWallet();
-    if (typeof alert !== 'undefined') {
-      alert('Wallet has been reset to 10,000 coins.');
-    }
-  };
+  const { settings, updateSettings } = useGameStore();
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -149,17 +142,7 @@ export const SettingsScreen: React.FC<Props> = ({ onBack }) => {
             </View>
           </View>
 
-          {/* Wallet Management Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionHeader}>គ្រប់គ្រងគណនី (WALLET & DATA)</Text>
-            <TouchableOpacity
-              style={styles.dangerBtn}
-              activeOpacity={0.8}
-              onPress={handleResetWallet}
-            >
-              <Text style={styles.dangerBtnText}>RESET BALANCE TO 10,000 COINS</Text>
-            </TouchableOpacity>
-          </View>
+          {/* About Game Info */}
 
           {/* About Game Info */}
           <View style={styles.aboutCard}>

@@ -310,22 +310,52 @@ export const subscribeToOnlineRoom = (
 export const updatePlayerBetsOnline = async (
   roomId: string,
   playerId: string,
-  bets: Record<string, number>
+  bets: Record<string, number>,
+  balance?: number
 ): Promise<void> => {
   const totalAmount = Object.values(bets).reduce((a, b) => a + b, 0);
   const db = getFirebaseDb();
 
+  const updateData: any = {
+    bets,
+    currentBetTotal: totalAmount,
+    lastActive: Date.now(),
+  };
+  if (typeof balance === 'number') {
+    updateData.balance = balance;
+  }
+
   if (db && isFirebaseConfigured()) {
     const playerBetsRef = ref(db, `rooms/${roomId}/players/${playerId}`);
-    await update(playerBetsRef, {
-      bets,
-      currentBetTotal: totalAmount,
-      lastActive: Date.now(),
-    });
+    await update(playerBetsRef, updateData);
   } else {
     if (localMockRoom && localMockRoom.players[playerId]) {
       localMockRoom.players[playerId].bets = bets;
       localMockRoom.players[playerId].currentBetTotal = totalAmount;
+      if (typeof balance === 'number') {
+        localMockRoom.players[playerId].balance = balance;
+      }
+      localMockRoom.players[playerId].lastActive = Date.now();
+      notifyMockSubscribers();
+    }
+  }
+};
+
+export const updatePlayerBalanceOnline = async (
+  roomId: string,
+  playerId: string,
+  balance: number
+): Promise<void> => {
+  const db = getFirebaseDb();
+  if (db && isFirebaseConfigured()) {
+    const playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
+    await update(playerRef, {
+      balance,
+      lastActive: Date.now(),
+    });
+  } else {
+    if (localMockRoom && localMockRoom.players[playerId]) {
+      localMockRoom.players[playerId].balance = balance;
       localMockRoom.players[playerId].lastActive = Date.now();
       notifyMockSubscribers();
     }
@@ -369,15 +399,37 @@ export const broadcastFinishRoundOnline = async (
 
   if (db && isFirebaseConfigured()) {
     const roomRef = ref(db, `rooms/${roomId}`);
-    await update(roomRef, {
+    const snapshot = await get(roomRef);
+    const updates: Record<string, any> = {
       status: 'betting',
       roundNumber: nextRoundNumber,
+      totalBets: {},
       updatedAt: Date.now(),
-    });
+    };
+    if (snapshot.exists()) {
+      const roomData = snapshot.val() as OnlineRoom;
+      if (roomData.players) {
+        Object.keys(roomData.players).forEach((pid) => {
+          updates[`players/${pid}/bets`] = {};
+          updates[`players/${pid}/currentBetTotal`] = 0;
+        });
+      }
+    }
+    await update(roomRef, updates);
   } else {
     if (localMockRoom) {
       localMockRoom.status = 'betting';
       localMockRoom.roundNumber = nextRoundNumber;
+      localMockRoom.totalBets = {};
+      const mockPlayers = localMockRoom.players;
+      if (mockPlayers) {
+        Object.keys(mockPlayers).forEach((pid) => {
+          if (mockPlayers[pid]) {
+            mockPlayers[pid].bets = {};
+            mockPlayers[pid].currentBetTotal = 0;
+          }
+        });
+      }
       localMockRoom.updatedAt = Date.now();
       notifyMockSubscribers();
     }
