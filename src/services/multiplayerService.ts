@@ -25,7 +25,10 @@ export interface OnlineRoom {
   id: string;
   hostId: string;
   hostName: string;
+  pin?: string;
   status: 'betting' | 'rolling' | 'payout';
+  rollId?: string;
+  rollTimestamp?: number;
   diceResult?: DiceResult;
   totalBets: Record<string, number>;
   players: Record<string, OnlinePlayer>;
@@ -41,18 +44,21 @@ const notifyMockSubscribers = () => {
   localMockSubscribers.forEach((cb) => cb(localMockRoom ? { ...localMockRoom } : null));
 };
 
-export const createOnlineRoom = async (player: {
-  id: string;
-  name: string;
-  avatar: string;
-  balance: number;
-}): Promise<string> => {
+export const createOnlineRoom = async (
+  player: {
+    id: string;
+    name: string;
+    avatar: string;
+    balance: number;
+  },
+  pin?: string
+): Promise<string> => {
   const roomId = Math.floor(100000 + Math.random() * 900000).toString();
   const db = getFirebaseDb();
 
   const hostPlayer: OnlinePlayer = {
     id: player.id,
-    name: player.name || 'Ly Kimsan',
+    name: player.name?.trim() || 'Ly Kimsan',
     avatar: player.avatar || '👑',
     balance: player.balance,
     isHost: true,
@@ -65,6 +71,7 @@ export const createOnlineRoom = async (player: {
     id: roomId,
     hostId: player.id,
     hostName: hostPlayer.name,
+    pin: pin?.trim() || '',
     status: 'betting',
     totalBets: {},
     players: {
@@ -96,9 +103,15 @@ export const joinOnlineRoom = async (
     id: string;
     name: string;
     avatar: string;
-    balance: number;
-  }
+    balance?: number;
+  },
+  inputPin?: string
 ): Promise<{ success: boolean; error?: string }> => {
+  const trimmedName = player.name?.trim();
+  if (!trimmedName) {
+    return { success: false, error: 'សូមបញ្ចូលឈ្មោះរបស់អ្នកជាមុនសិន! (Please enter your name first!)' };
+  }
+
   const db = getFirebaseDb();
 
   if (db && isFirebaseConfigured()) {
@@ -112,15 +125,28 @@ export const joinOnlineRoom = async (
     const roomData = snapshot.val() as OnlineRoom;
     const isHost = roomData.hostId === player.id;
 
+    // Check PIN if room is password protected and user is not host
+    if (!isHost && roomData.pin && roomData.pin.trim() !== '') {
+      if ((inputPin || '').trim() !== roomData.pin.trim()) {
+        return { success: false, error: 'លេខសំងាត់តុមិនត្រឹមត្រូវ! (Incorrect Table PIN!)' };
+      }
+    }
+
+    // Participants start with 0 balance upon joining unless host or rejoining
+    const existingPlayer = roomData.players?.[player.id];
+    const initialBalance = isHost
+      ? (player.balance ?? 10000)
+      : (existingPlayer ? existingPlayer.balance : 0);
+
     const joiningPlayer: OnlinePlayer = {
       id: player.id,
-      name: player.name || `Player ${player.id.slice(0, 4)}`,
-      avatar: player.avatar || '🎲',
-      balance: player.balance,
+      name: trimmedName,
+      avatar: player.avatar || (isHost ? '👑' : '🎲'),
+      balance: initialBalance,
       isHost,
       lastActive: Date.now(),
-      currentBetTotal: 0,
-      bets: {},
+      currentBetTotal: existingPlayer?.currentBetTotal || 0,
+      bets: existingPlayer?.bets || {},
     };
 
     const playerRef = ref(db, `rooms/${roomId}/players/${player.id}`);
@@ -135,6 +161,7 @@ export const joinOnlineRoom = async (
         id: roomId,
         hostId: 'host-1',
         hostName: 'Ly Kimsan',
+        pin: '',
         status: 'betting',
         totalBets: {},
         players: {
@@ -150,9 +177,9 @@ export const joinOnlineRoom = async (
           },
           [player.id]: {
             id: player.id,
-            name: player.name || 'You',
+            name: trimmedName,
             avatar: player.avatar || '🎲',
-            balance: player.balance,
+            balance: 0, // Participants start with 0
             isHost: false,
             lastActive: Date.now(),
             currentBetTotal: 0,
@@ -163,19 +190,77 @@ export const joinOnlineRoom = async (
         roundNumber: 1,
       };
     } else {
+      const isHost = localMockRoom.hostId === player.id;
+      if (!isHost && localMockRoom.pin && localMockRoom.pin.trim() !== '') {
+        if ((inputPin || '').trim() !== localMockRoom.pin.trim()) {
+          return { success: false, error: 'លេខសំងាត់តុមិនត្រឹមត្រូវ! (Incorrect Table PIN!)' };
+        }
+      }
+
+      const existingPlayer = localMockRoom.players[player.id];
       localMockRoom.players[player.id] = {
         id: player.id,
-        name: player.name || 'You',
-        avatar: player.avatar || '🎲',
-        balance: player.balance,
-        isHost: localMockRoom.hostId === player.id,
+        name: trimmedName,
+        avatar: player.avatar || (isHost ? '👑' : '🎲'),
+        balance: isHost ? (player.balance ?? 10000) : (existingPlayer ? existingPlayer.balance : 0),
+        isHost,
         lastActive: Date.now(),
-        currentBetTotal: 0,
-        bets: {},
+        currentBetTotal: existingPlayer?.currentBetTotal || 0,
+        bets: existingPlayer?.bets || {},
       };
     }
     notifyMockSubscribers();
     return { success: true };
+  }
+};
+
+export const giveCoinsToPlayerOnline = async (
+  roomId: string,
+  targetPlayerId: string,
+  amount: number
+): Promise<void> => {
+  const db = getFirebaseDb();
+  if (db && isFirebaseConfigured()) {
+    const targetRef = ref(db, `rooms/${roomId}/players/${targetPlayerId}`);
+    const snapshot = await get(targetRef);
+    if (snapshot.exists()) {
+      const currentData = snapshot.val() as OnlinePlayer;
+      const newBal = (currentData.balance || 0) + amount;
+      await update(targetRef, {
+        balance: newBal,
+        lastActive: Date.now(),
+      });
+    }
+  } else {
+    if (localMockRoom && localMockRoom.players[targetPlayerId]) {
+      localMockRoom.players[targetPlayerId].balance += amount;
+      localMockRoom.players[targetPlayerId].lastActive = Date.now();
+      notifyMockSubscribers();
+    }
+  }
+};
+
+export const updatePlayerNameOnline = async (
+  roomId: string,
+  playerId: string,
+  newName: string
+): Promise<void> => {
+  const trimmed = newName.trim();
+  if (!trimmed) return;
+
+  const db = getFirebaseDb();
+  if (db && isFirebaseConfigured()) {
+    const playerRef = ref(db, `rooms/${roomId}/players/${playerId}`);
+    await update(playerRef, {
+      name: trimmed,
+      lastActive: Date.now(),
+    });
+  } else {
+    if (localMockRoom && localMockRoom.players[playerId]) {
+      localMockRoom.players[playerId].name = trimmed;
+      localMockRoom.players[playerId].lastActive = Date.now();
+      notifyMockSubscribers();
+    }
   }
 };
 
@@ -203,7 +288,6 @@ export const subscribeToOnlineRoom = (
     const unsubscribe = onValue(roomRef, (snapshot) => {
       if (snapshot.exists()) {
         const val = snapshot.val() as OnlineRoom;
-        // Firebase objects might have undefined players if all left
         if (!val.players) val.players = {};
         if (!val.totalBets) val.totalBets = {};
         onUpdate(val);
@@ -253,19 +337,25 @@ export const broadcastDiceRollOnline = async (
   diceResult: DiceResult
 ): Promise<void> => {
   const db = getFirebaseDb();
+  const rollId = `${roomId}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  const now = Date.now();
 
   if (db && isFirebaseConfigured()) {
     const roomRef = ref(db, `rooms/${roomId}`);
     await update(roomRef, {
       status: 'rolling',
       diceResult,
-      updatedAt: Date.now(),
+      rollId,
+      rollTimestamp: now,
+      updatedAt: now,
     });
   } else {
     if (localMockRoom) {
       localMockRoom.status = 'rolling';
       localMockRoom.diceResult = diceResult;
-      localMockRoom.updatedAt = Date.now();
+      localMockRoom.rollId = rollId;
+      localMockRoom.rollTimestamp = now;
+      localMockRoom.updatedAt = now;
       notifyMockSubscribers();
     }
   }

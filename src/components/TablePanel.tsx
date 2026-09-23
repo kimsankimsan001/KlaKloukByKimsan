@@ -9,7 +9,6 @@ import {
   Share,
   Platform,
   TextInput,
-  Alert,
 } from 'react-native';
 import { COLORS, FONTS } from '../constants/theme';
 import { useGameStore } from '../store/gameStore';
@@ -22,23 +21,29 @@ interface Props {
 
 export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
   const roomId = useGameStore((state) => state.roomId);
+  const roomPin = useGameStore((state) => state.roomPin);
   const tablePlayers = useGameStore((state) => state.tablePlayers);
   const onlinePlayers = useGameStore((state) => state.onlinePlayers);
   const isOnline = useGameStore((state) => state.isOnline);
   const isHost = useGameStore((state) => state.isHost);
+  const playerId = useGameStore((state) => state.playerId);
   const playerName = useGameStore((state) => state.playerName);
   const setPlayerName = useGameStore((state) => state.setPlayerName);
+  const updatePlayerNameAction = useGameStore((state) => state.updatePlayerNameAction);
+  const giveCoinsAction = useGameStore((state) => state.giveCoinsAction);
 
   const createOnlineRoomAction = useGameStore((state) => state.createOnlineRoomAction);
   const joinOnlineRoomAction = useGameStore((state) => state.joinOnlineRoomAction);
   const leaveOnlineRoomAction = useGameStore((state) => state.leaveOnlineRoomAction);
 
-  const [modalVisible, setModalVisible] = useState(false);
   const [onlineModalVisible, setOnlineModalVisible] = useState(false);
   const [copiedNotice, setCopiedNotice] = useState(false);
   const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [joinPinInput, setJoinPinInput] = useState('');
+  const [createPinInput, setCreatePinInput] = useState('');
   const [editingName, setEditingName] = useState(playerName);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [grantSuccessNotice, setGrantSuccessNotice] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const hasFirebase = isFirebaseConfigured();
@@ -49,7 +54,8 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
         typeof window !== 'undefined'
           ? `${window.location.origin}/?room=${roomId}`
           : `Room ID: ${roomId}`;
-      const message = `ចូលលេងខ្លាឃ្លោកជាមួយខ្ញុំ! បន្ទប់លេខ (Room ID): ${roomId}\n${inviteUrl}`;
+      const pinMsg = roomPin ? ` | លេខសំងាត់ PIN: ${roomPin}` : '';
+      const message = `ចូលលេងខ្លាឃ្លោកជាមួយខ្ញុំ! បន្ទប់លេខ (Room ID): ${roomId}${pinMsg}\n${inviteUrl}`;
 
       if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
         await navigator.clipboard.writeText(message);
@@ -68,10 +74,9 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
     setIsProcessing(true);
     setActionError(null);
     try {
-      if (editingName.trim()) {
-        setPlayerName(editingName.trim());
-      }
-      await createOnlineRoomAction();
+      const name = editingName.trim() || 'Ly Kimsan';
+      setPlayerName(name);
+      await createOnlineRoomAction(createPinInput.trim());
       setCopiedNotice(false);
     } catch (e: any) {
       setActionError(e?.message || 'Failed to create room');
@@ -83,25 +88,55 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
   const handleJoinRoom = async () => {
     const code = joinCodeInput.trim();
     if (!code) {
-      setActionError('សូមបញ្ចូលលេខកូដបន្ទប់ (Please enter room ID)');
+      setActionError('សូមបញ្ចូលលេខកូដបន្ទប់ (Please enter Room ID)');
       return;
     }
+    const name = editingName.trim();
+    if (!name) {
+      setActionError('សូមបញ្ចូលឈ្មោះរបស់អ្នកជាមុនសិន! (Please enter your name first!)');
+      return;
+    }
+
     setIsProcessing(true);
     setActionError(null);
     try {
-      if (editingName.trim()) {
-        setPlayerName(editingName.trim());
-      }
-      const res = await joinOnlineRoomAction(code);
+      setPlayerName(name);
+      const res = await joinOnlineRoomAction(code, joinPinInput.trim());
       if (!res.success) {
         setActionError(res.error || 'Failed to join room');
       } else {
         setJoinCodeInput('');
+        setJoinPinInput('');
       }
     } catch (e: any) {
       setActionError(e?.message || 'Error joining room');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleSaveName = async () => {
+    const name = editingName.trim();
+    if (!name) return;
+    try {
+      await updatePlayerNameAction(name);
+      setActionError(null);
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to update name');
+    }
+  };
+
+  const handleGiveCoins = async (
+    targetPlayerId: string,
+    targetPlayerName: string,
+    amount: number
+  ) => {
+    try {
+      await giveCoinsAction(targetPlayerId, amount);
+      setGrantSuccessNotice(`បានផ្តល់ $${formatCoins(amount)} ដល់ ${targetPlayerName}!`);
+      setTimeout(() => setGrantSuccessNotice(null), 2500);
+    } catch (e: any) {
+      setActionError(e?.message || 'Failed to give coins');
     }
   };
 
@@ -125,7 +160,7 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
         >
           <Text style={styles.idText}>ID : {roomId}</Text>
           <Text style={styles.onlineStatusText}>
-            {isOnline ? '🟢 ONLINE' : '⚙️ LOBBY'}
+            {isOnline ? (isHost ? '👑 HOST' : '🟢 GUEST') : '⚙️ LOBBY'}
           </Text>
         </TouchableOpacity>
 
@@ -179,7 +214,7 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
           onPress={() => setOnlineModalVisible(true)}
         >
           <Text style={styles.compactTriggerText}>
-            {isOnline ? '🟢' : '🎲'} #{roomId}
+            {isOnline ? (isHost ? '👑' : '🟢') : '🎲'} #{roomId}
           </Text>
           <View style={styles.compactPlayerCount}>
             <Text style={styles.compactCountText}>{tablePlayers.length}/6</Text>
@@ -226,18 +261,28 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
                   <Text style={styles.statusBannerSub}>
                     {hasFirebase
                       ? 'Global synchronized dice rolls & live player bets active.'
-                      : 'To connect your live Firebase project, paste your keys into .env or src/services/firebaseConfig.ts'}
+                      : 'To connect live Firebase, paste keys into src/services/firebaseConfig.ts'}
                   </Text>
                 </View>
               </View>
 
-              {/* Player Name Input */}
+              {/* Player Name Input (Required) */}
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>ឈ្មោះរបស់អ្នក (YOUR NAME):</Text>
+                <View style={styles.nameHeaderRow}>
+                  <Text style={styles.inputLabel}>
+                    ឈ្មោះរបស់អ្នក (YOUR NAME) <Text style={styles.requiredStar}>*</Text>:
+                  </Text>
+                  {isOnline && (
+                    <TouchableOpacity onPress={handleSaveName} style={styles.saveNameBtn}>
+                      <Text style={styles.saveNameTxt}>រក្សាទុក (SAVE)</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
                 <TextInput
                   value={editingName}
                   onChangeText={setEditingName}
-                  placeholder="Enter your player name"
+                  onBlur={handleSaveName}
+                  placeholder="បញ្ចូលឈ្មោះរបស់អ្នក (Enter your name)"
                   placeholderTextColor="#64748B"
                   style={styles.textInput}
                 />
@@ -247,6 +292,11 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
               <View style={styles.roomInfoBox}>
                 <Text style={styles.roomInfoLabel}>លេខកូដបន្ទប់បច្ចុប្បន្ន (CURRENT ROOM ID):</Text>
                 <Text style={styles.roomInfoCode}>{roomId}</Text>
+                {roomPin ? (
+                  <View style={styles.pinBadge}>
+                    <Text style={styles.pinBadgeTxt}>🔒 លេខសម្ងាត់ PIN: {roomPin}</Text>
+                  </View>
+                ) : null}
                 <TouchableOpacity style={styles.copyLinkBtn} onPress={handleInvite}>
                   <Text style={styles.copyLinkTxt}>
                     {copiedNotice ? '✓ បានចម្លងរួចរាល់ (COPIED)' : '🔗 ចម្លងតំណភ្ជាប់ (COPY INVITE LINK)'}
@@ -260,33 +310,73 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
                 </View>
               )}
 
+              {/* Host Money Grant Notification */}
+              {grantSuccessNotice && (
+                <View style={styles.successBox}>
+                  <Text style={styles.successText}>✓ {grantSuccessNotice}</Text>
+                </View>
+              )}
+
+              {/* Participant Zero Balance Notice */}
+              {isOnline && !isHost && (
+                <View style={styles.guestNoticeBox}>
+                  <Text style={styles.guestNoticeTxt}>
+                    💡 អ្នកលេងចាប់ផ្តើមជាមួយលុយ $0។ សូមឱ្យមេតុ (Host) ផ្តល់លុយឱ្យអ្នកលេង!
+                  </Text>
+                </View>
+              )}
+
               {/* Room Actions */}
               <View style={styles.actionButtonsCol}>
-                <TouchableOpacity
-                  style={[styles.primaryActionBtn, isProcessing && styles.btnDisabled]}
-                  disabled={isProcessing}
-                  onPress={handleCreateRoom}
-                >
-                  <Text style={styles.primaryActionTxt}>
-                    👑 បង្កើតបន្ទប់ថ្មី (CREATE NEW ROOM)
-                  </Text>
-                </TouchableOpacity>
+                {/* Create Room Section with PIN */}
+                <View style={styles.createRoomCard}>
+                  <Text style={styles.actionSectionTitle}>👑 បង្កើតបន្ទប់ថ្មី (CREATE TABLE)</Text>
+                  <TextInput
+                    value={createPinInput}
+                    onChangeText={setCreatePinInput}
+                    placeholder="ដាក់លេខកូដសម្ងាត់តុ PIN (Optional)"
+                    placeholderTextColor="#64748B"
+                    keyboardType="number-pad"
+                    maxLength={8}
+                    style={[styles.textInput, { marginBottom: 8 }]}
+                  />
+                  <TouchableOpacity
+                    style={[styles.primaryActionBtn, isProcessing && styles.btnDisabled]}
+                    disabled={isProcessing}
+                    onPress={handleCreateRoom}
+                  >
+                    <Text style={styles.primaryActionTxt}>
+                      បង្កើតបន្ទប់ឥឡូវនេះ (CREATE)
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-                <View style={styles.joinRow}>
+                {/* Join Room Section with PIN */}
+                <View style={styles.joinRoomCard}>
+                  <Text style={styles.actionSectionTitle}>🚪 ចូលរួមបន្ទប់មិត្តភក្តិ (JOIN TABLE)</Text>
                   <TextInput
                     value={joinCodeInput}
                     onChangeText={setJoinCodeInput}
-                    placeholder="Enter 6-digit Room ID"
+                    placeholder="បញ្ចូលលេខកូដបន្ទប់ (6-digit Room ID)"
                     placeholderTextColor="#64748B"
                     keyboardType="number-pad"
-                    style={styles.joinInput}
+                    style={[styles.textInput, { marginBottom: 8 }]}
+                  />
+                  <TextInput
+                    value={joinPinInput}
+                    onChangeText={setJoinPinInput}
+                    placeholder="លេខកូដសម្ងាត់ PIN (ប្រសិនបើតុមានដាក់)"
+                    placeholderTextColor="#64748B"
+                    keyboardType="number-pad"
+                    maxLength={8}
+                    style={[styles.textInput, { marginBottom: 8 }]}
                   />
                   <TouchableOpacity
                     style={[styles.joinBtn, isProcessing && styles.btnDisabled]}
                     disabled={isProcessing}
                     onPress={handleJoinRoom}
                   >
-                    <Text style={styles.joinBtnTxt}>JOIN</Text>
+                    <Text style={styles.joinBtnTxt}>ចូលរួមលេង (JOIN TABLE)</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -300,23 +390,68 @@ export const TablePanel: React.FC<Props> = ({ isCompact = false }) => {
                 )}
               </View>
 
-              {/* Connected Players List */}
+              {/* Connected Players List with Host Financial Grants */}
               <View style={styles.connectedSection}>
                 <Text style={styles.connectedTitle}>
-                  អ្នកលេងនៅក្នុងតុ ({tablePlayers.length}/6 PLAYERS):
+                  អ្នកលេងនៅក្នុងតុ ({onlinePlayers.length || tablePlayers.length}/6 PLAYERS):
                 </Text>
                 <View style={styles.playersList}>
-                  {tablePlayers.map((name, i) => (
-                    <View key={i} style={styles.playerListItem}>
-                      <View style={styles.activeDot} />
-                      <Text style={styles.playerListName}>{name}</Text>
-                      {i === 0 && isHost && (
-                        <View style={styles.hostBadge}>
-                          <Text style={styles.hostBadgeTxt}>HOST 👑</Text>
+                  {onlinePlayers.length > 0 ? (
+                    onlinePlayers.map((p) => {
+                      const isMe = p.id === playerId;
+                      const isPlayerHost = p.isHost;
+
+                      return (
+                        <View key={p.id} style={styles.playerCardItem}>
+                          <View style={styles.playerCardTop}>
+                            <View style={styles.activeDot} />
+                            <Text style={styles.playerAvatarIcon}>{p.avatar || '🎲'}</Text>
+                            <Text style={styles.playerListName} numberOfLines={1}>
+                              {p.name} {isMe ? '(You)' : ''}
+                            </Text>
+                            {isPlayerHost ? (
+                              <View style={styles.hostBadge}>
+                                <Text style={styles.hostBadgeTxt}>HOST 👑</Text>
+                              </View>
+                            ) : null}
+                            <Text style={styles.playerBalanceAmount}>
+                              ${formatCoins(p.balance || 0)}
+                            </Text>
+                          </View>
+
+                          {/* Host Coin Grant Controls */}
+                          {isHost && !isPlayerHost ? (
+                            <View style={styles.grantCoinsRow}>
+                              <Text style={styles.grantCoinsLabel}>ផ្តល់លុយ៖</Text>
+                              {[1000, 5000, 10000, 50000].map((amt) => (
+                                <TouchableOpacity
+                                  key={amt}
+                                  style={styles.grantCoinBtn}
+                                  onPress={() => handleGiveCoins(p.id, p.name, amt)}
+                                >
+                                  <Text style={styles.grantCoinBtnTxt}>
+                                    +${amt >= 1000 ? `${amt / 1000}K` : amt}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                          ) : null}
                         </View>
-                      )}
-                    </View>
-                  ))}
+                      );
+                    })
+                  ) : (
+                    tablePlayers.map((name, i) => (
+                      <View key={i} style={styles.playerListItem}>
+                        <View style={styles.activeDot} />
+                        <Text style={styles.playerListName}>{name}</Text>
+                        {i === 0 && isHost && (
+                          <View style={styles.hostBadge}>
+                            <Text style={styles.hostBadgeTxt}>HOST 👑</Text>
+                          </View>
+                        )}
+                      </View>
+                    ))
+                  )}
                 </View>
               </View>
             </ScrollView>
@@ -482,15 +617,15 @@ const styles = StyleSheet.create({
   // Modal Styles
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.82)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
   },
   multiplayerCard: {
     width: '100%',
-    maxWidth: 420,
-    maxHeight: '90%',
+    maxWidth: 440,
+    maxHeight: '92%',
     backgroundColor: '#0F172A',
     borderRadius: 16,
     borderWidth: 2,
@@ -560,11 +695,30 @@ const styles = StyleSheet.create({
   inputGroup: {
     gap: 4,
   },
+  nameHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   inputLabel: {
     fontFamily: FONTS.khmerBold,
     color: '#CBD5E1',
     fontSize: 11,
     fontWeight: '700',
+  },
+  requiredStar: {
+    color: '#EF4444',
+  },
+  saveNameBtn: {
+    backgroundColor: 'rgba(245, 186, 19, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  saveNameTxt: {
+    color: '#FFE082',
+    fontSize: 9,
+    fontWeight: '800',
   },
   textInput: {
     backgroundColor: '#1E293B',
@@ -598,6 +752,19 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 4,
   },
+  pinBadge: {
+    backgroundColor: 'rgba(59, 130, 246, 0.2)',
+    borderColor: '#3B82F6',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  pinBadgeTxt: {
+    color: '#93C5FD',
+    fontSize: 11,
+    fontWeight: '800',
+  },
   copyLinkBtn: {
     backgroundColor: 'rgba(245, 186, 19, 0.2)',
     paddingVertical: 6,
@@ -622,48 +789,81 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center',
   },
+  successBox: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderColor: '#10B981',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 8,
+  },
+  successText: {
+    color: '#34D399',
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  guestNoticeBox: {
+    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+    borderColor: '#3B82F6',
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 8,
+  },
+  guestNoticeTxt: {
+    fontFamily: FONTS.khmerBold,
+    color: '#93C5FD',
+    fontSize: 10.5,
+    textAlign: 'center',
+  },
   actionButtonsCol: {
-    gap: 8,
+    gap: 10,
+  },
+  createRoomCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#475569',
+    padding: 10,
+    gap: 6,
+  },
+  joinRoomCard: {
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#475569',
+    padding: 10,
+    gap: 6,
+  },
+  actionSectionTitle: {
+    fontFamily: FONTS.khmerBold,
+    color: '#FFE082',
+    fontSize: 11.5,
+    fontWeight: '800',
+    marginBottom: 4,
   },
   primaryActionBtn: {
     backgroundColor: '#F5BA13',
-    paddingVertical: 11,
+    paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
   },
   primaryActionTxt: {
     fontFamily: FONTS.khmerBold,
     color: '#0F172A',
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '900',
-  },
-  joinRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  joinInput: {
-    flex: 1,
-    backgroundColor: '#1E293B',
-    borderWidth: 1.5,
-    borderColor: '#334155',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    color: '#F8FAFC',
-    fontSize: 13,
-    fontWeight: '700',
   },
   joinBtn: {
     backgroundColor: '#10B981',
-    paddingHorizontal: 20,
+    paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   joinBtnTxt: {
+    fontFamily: FONTS.khmerBold,
     color: '#FFFFFF',
+    fontSize: 12.5,
     fontWeight: '900',
-    fontSize: 13,
   },
   leaveBtn: {
     backgroundColor: 'rgba(239, 68, 68, 0.2)',
@@ -693,7 +893,61 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   playersList: {
+    gap: 8,
+  },
+  playerCardItem: {
+    backgroundColor: '#1E293B',
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#334155',
     gap: 6,
+  },
+  playerCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  playerAvatarIcon: {
+    fontSize: 14,
+    marginRight: 6,
+  },
+  playerListName: {
+    color: '#F8FAFC',
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
+  },
+  playerBalanceAmount: {
+    color: '#FFE082',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  grantCoinsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+    paddingTop: 6,
+  },
+  grantCoinsLabel: {
+    fontFamily: FONTS.khmerBold,
+    color: '#94A3B8',
+    fontSize: 9.5,
+    marginRight: 2,
+  },
+  grantCoinBtn: {
+    backgroundColor: 'rgba(245, 186, 19, 0.15)',
+    borderColor: '#F5BA13',
+    borderWidth: 1,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  grantCoinBtnTxt: {
+    color: '#FFE082',
+    fontSize: 9.5,
+    fontWeight: '800',
   },
   playerListItem: {
     flexDirection: 'row',
@@ -703,17 +957,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 6,
   },
-  playerListName: {
-    color: '#F8FAFC',
-    fontSize: 12,
-    fontWeight: '700',
-    flex: 1,
-  },
   hostBadge: {
     backgroundColor: 'rgba(245, 186, 19, 0.2)',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
+    marginRight: 8,
   },
   hostBadgeTxt: {
     color: '#FFD700',

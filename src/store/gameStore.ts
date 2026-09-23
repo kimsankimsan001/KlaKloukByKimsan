@@ -20,6 +20,8 @@ import {
   updatePlayerBetsOnline,
   broadcastDiceRollOnline,
   broadcastFinishRoundOnline,
+  giveCoinsToPlayerOnline,
+  updatePlayerNameOnline,
 } from '../services/multiplayerService';
 
 let roomUnsubscribe: (() => void) | null = null;
@@ -51,12 +53,14 @@ interface GameState {
 
   // Room / Table (Multiplayer Architecture)
   roomId: string;
+  roomPin: string;
   tablePlayers: string[];
   isOnline: boolean;
   isHost: boolean;
   playerId: string;
   playerName: string;
   onlinePlayers: OnlinePlayer[];
+  lastHandledRollId: string | null;
 
   // Actions
   initialize: () => Promise<void>;
@@ -72,10 +76,12 @@ interface GameState {
   claimFreeCoins: () => void;
   resetWallet: () => void;
   updateSettings: (newSettings: Partial<GameSettings>) => void;
-  createOnlineRoomAction: () => Promise<string>;
-  joinOnlineRoomAction: (roomId: string) => Promise<{ success: boolean; error?: string }>;
+  createOnlineRoomAction: (pin?: string) => Promise<string>;
+  joinOnlineRoomAction: (roomId: string, pin?: string) => Promise<{ success: boolean; error?: string }>;
   leaveOnlineRoomAction: () => Promise<void>;
   setPlayerName: (name: string) => void;
+  updatePlayerNameAction: (newName: string) => Promise<void>;
+  giveCoinsAction: (targetPlayerId: string, amount: number) => Promise<void>;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -116,12 +122,14 @@ export const useGameStore = create<GameState>((set, get) => ({
   isInitialized: false,
 
   roomId: '122',
+  roomPin: '',
   tablePlayers: ['Sokha', 'Dara', 'Chantrea', 'Bopha'],
   isOnline: false,
   isHost: true,
   playerId: initialPlayerId,
-  playerName: 'Ly Kimsan',
+  playerName: '',
   onlinePlayers: [],
+  lastHandledRollId: null,
 
   initialize: async () => {
     if (get().isInitialized) return;
@@ -289,6 +297,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   startRoll: () => {
     const { currentBets, totalBetAmount, gamePhase, settings, isOnline, isHost, roomId } = get();
     if (gamePhase !== 'betting') return;
+    if (isOnline && !isHost) return;
     if (!isOnline && totalBetAmount <= 0) return;
 
     // Generate fair random outcome
@@ -422,39 +431,55 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ settings: merged });
   },
 
-  createOnlineRoomAction: async () => {
+  createOnlineRoomAction: async (pin?: string) => {
     if (roomUnsubscribe) {
       roomUnsubscribe();
       roomUnsubscribe = null;
     }
 
     const { playerId, playerName, balance } = get();
-    const newRoomId = await createOnlineRoom({
-      id: playerId,
-      name: playerName,
-      avatar: '👑',
-      balance,
-    });
+    const effectiveHostName = playerName.trim() || 'Ly Kimsan';
+    const newRoomId = await createOnlineRoom(
+      {
+        id: playerId,
+        name: effectiveHostName,
+        avatar: '👑',
+        balance,
+      },
+      pin
+    );
 
     set({
       isOnline: true,
       isHost: true,
       roomId: newRoomId,
+      roomPin: pin?.trim() || '',
+      playerName: effectiveHostName,
       currentBets: {},
       totalBetAmount: 0,
+      lastHandledRollId: null,
     });
 
     roomUnsubscribe = subscribeToOnlineRoom(newRoomId, (room) => {
       if (!room) return;
       const players = Object.values(room.players || {});
+      const amHost = room.hostId === get().playerId;
+
       set({
         onlinePlayers: players,
         tablePlayers: players.map((p) => p.name),
         roundNumber: room.roundNumber || get().roundNumber,
       });
 
-      const currentPhase = get().gamePhase;
-      if (room.status === 'rolling' && room.diceResult && currentPhase === 'betting' && !get().isHost) {
+      // Synchronize Roll Trigger via unique rollId
+      if (
+        room.status === 'rolling' &&
+        room.diceResult &&
+        room.rollId &&
+        room.rollId !== get().lastHandledRollId &&
+        !amHost
+      ) {
+        set({ lastHandledRollId: room.rollId });
         get().executeSynchronizedRoll(room.diceResult);
       }
     });
@@ -462,19 +487,28 @@ export const useGameStore = create<GameState>((set, get) => ({
     return newRoomId;
   },
 
-  joinOnlineRoomAction: async (targetRoomId: string) => {
+  joinOnlineRoomAction: async (targetRoomId: string, inputPin?: string) => {
     if (roomUnsubscribe) {
       roomUnsubscribe();
       roomUnsubscribe = null;
     }
 
     const { playerId, playerName, balance } = get();
-    const result = await joinOnlineRoom(targetRoomId, {
-      id: playerId,
-      name: playerName,
-      avatar: '🎲',
-      balance,
-    });
+    const trimmedName = playerName.trim();
+    if (!trimmedName) {
+      return { success: false, error: 'សូមបញ្ចូលឈ្មោះរបស់អ្នកជាមុនសិន! (Please enter your name first!)' };
+    }
+
+    const result = await joinOnlineRoom(
+      targetRoomId,
+      {
+        id: playerId,
+        name: trimmedName,
+        avatar: '🎲',
+        balance,
+      },
+      inputPin
+    );
 
     if (!result.success) {
       return result;
@@ -484,22 +518,46 @@ export const useGameStore = create<GameState>((set, get) => ({
       isOnline: true,
       isHost: false,
       roomId: targetRoomId,
+      balance: 0, // Guest participants start with 0 coins until host grants them!
       currentBets: {},
       totalBetAmount: 0,
+      lastHandledRollId: null,
     });
 
     roomUnsubscribe = subscribeToOnlineRoom(targetRoomId, (room) => {
       if (!room) return;
       const players = Object.values(room.players || {});
+      const amHost = room.hostId === get().playerId;
+      const myPlayer = room.players?.[get().playerId];
+
       set({
         onlinePlayers: players,
         tablePlayers: players.map((p) => p.name),
-        isHost: room.hostId === get().playerId,
+        isHost: amHost,
+        roomPin: room.pin || '',
         roundNumber: room.roundNumber || get().roundNumber,
       });
 
-      const currentPhase = get().gamePhase;
-      if (room.status === 'rolling' && room.diceResult && currentPhase === 'betting' && !get().isHost) {
+      // Synchronize balance from room if guest (so Host giving coins updates guest balance immediately!)
+      if (!amHost && myPlayer && typeof myPlayer.balance === 'number') {
+        const currentBal = get().balance;
+        if (myPlayer.balance !== currentBal && get().gamePhase === 'betting') {
+          set({ balance: myPlayer.balance });
+          if (myPlayer.balance > currentBal) {
+            Sound.playWinFanfare();
+          }
+        }
+      }
+
+      // Synchronize Roll Trigger via unique rollId
+      if (
+        room.status === 'rolling' &&
+        room.diceResult &&
+        room.rollId &&
+        room.rollId !== get().lastHandledRollId &&
+        !amHost
+      ) {
+        set({ lastHandledRollId: room.rollId });
         get().executeSynchronizedRoll(room.diceResult);
       }
     });
@@ -519,14 +577,32 @@ export const useGameStore = create<GameState>((set, get) => ({
       isOnline: false,
       isHost: true,
       roomId: '122',
+      roomPin: '',
       tablePlayers: ['Sokha', 'Dara', 'Chantrea', 'Bopha'],
       onlinePlayers: [],
       currentBets: {},
       totalBetAmount: 0,
+      lastHandledRollId: null,
     });
   },
 
   setPlayerName: (name: string) => {
     set({ playerName: name });
+  },
+
+  updatePlayerNameAction: async (newName: string) => {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    set({ playerName: trimmed });
+    if (get().isOnline) {
+      await updatePlayerNameOnline(get().roomId, get().playerId, trimmed);
+    }
+  },
+
+  giveCoinsAction: async (targetPlayerId: string, amount: number) => {
+    const { roomId, isHost } = get();
+    if (!isHost) return;
+    await giveCoinsToPlayerOnline(roomId, targetPlayerId, amount);
+    Sound.playWinFanfare();
   },
 }));

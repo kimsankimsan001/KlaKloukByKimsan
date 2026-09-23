@@ -9,6 +9,7 @@ import {
 import Svg, { Circle, Rect, G } from 'react-native-svg';
 import { CHIP_COLORS, CHIP_VALUES, COLORS, FONTS } from '../constants/theme';
 import { formatCoins } from '../services/gameLogic';
+import { useGameStore } from '../store/gameStore';
 
 interface Props {
   selectedChip: number;
@@ -35,6 +36,8 @@ export const BetPanel: React.FC<Props> = ({
   canRebet,
   isRolling,
 }) => {
+  const isOnline = useGameStore((state) => state.isOnline);
+  const isHost = useGameStore((state) => state.isHost);
   const hasBets = totalBetAmount > 0;
   const canStart = hasBets && !isRolling;
 
@@ -149,23 +152,34 @@ export const BetPanel: React.FC<Props> = ({
           <Text style={styles.utilBtnSub}>សំអាត</Text>
         </TouchableOpacity>
 
-        {/* Centerpiece Grand Start Button (Matching "ចាប់ផ្តើម" from reference image!) */}
-        <TouchableOpacity
-          style={[
-            styles.startBigButton,
-            canStart ? styles.startBigButtonActive : styles.btnDisabled,
-          ]}
-          disabled={!canStart}
-          activeOpacity={0.8}
-          onPress={onStartRoll}
-        >
-          <Text style={styles.startKhmerText}>ចាប់ផ្តើម</Text>
-          {totalBetAmount > 0 && (
-            <Text style={styles.startBetSub}>
-              ${formatCoins(totalBetAmount)}
+        {/* Centerpiece Grand Start Button */}
+        {isOnline && !isHost ? (
+          <View style={[styles.startBigButton, styles.waitingGuestButton]}>
+            <Text style={styles.waitingKhmerText}>រង់ចាំមេក្រឡុក...</Text>
+            <Text style={styles.waitingGuestSub}>
+              {totalBetAmount > 0
+                ? `បានចាក់: $${formatCoins(totalBetAmount)}`
+                : 'WAITING FOR DEALER'}
             </Text>
-          )}
-        </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={[
+              styles.startBigButton,
+              canStart ? styles.startBigButtonActive : styles.btnDisabled,
+            ]}
+            disabled={!canStart}
+            activeOpacity={0.8}
+            onPress={onStartRoll}
+          >
+            <Text style={styles.startKhmerText}>ចាប់ផ្តើម</Text>
+            {totalBetAmount > 0 && (
+              <Text style={styles.startBetSub}>
+                ${formatCoins(totalBetAmount)}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Double / Rebet Button */}
         <TouchableOpacity
@@ -335,5 +349,21 @@ const styles = StyleSheet.create({
   btnDisabled: {
     opacity: 0.4,
     borderColor: '#6B7280',
+  },
+  waitingGuestButton: {
+    borderColor: '#3B82F6',
+    backgroundColor: '#0A1322',
+  },
+  waitingKhmerText: {
+    fontFamily: FONTS.khmerBold,
+    color: '#60A5FA',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  waitingGuestSub: {
+    color: '#93C5FD',
+    fontSize: 9,
+    fontWeight: '700',
+    marginTop: 1,
   },
 });
