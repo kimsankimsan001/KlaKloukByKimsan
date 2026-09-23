@@ -79,46 +79,7 @@ export const HomeScreen: React.FC<Props> = ({
             </Text>
           </View>
 
-          {/* Wallet Balance Display Card */}
-          <View style={styles.walletCard}>
-            <Text style={styles.walletLabel}>កាបូបលុយរបស់អ្នក (YOUR WALLET)</Text>
-            <View style={styles.balanceRow}>
-              <Svg width={30} height={30} viewBox="0 0 100 100">
-                <Defs>
-                  <LinearGradient id="homeGoldCoin" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <Stop offset="0%" stopColor="#FFF176" />
-                    <Stop offset="50%" stopColor="#F5BA13" />
-                    <Stop offset="100%" stopColor="#D97706" />
-                  </LinearGradient>
-                </Defs>
-                <Circle cx="50" cy="50" r="47" fill="url(#homeGoldCoin)" stroke="#B45309" strokeWidth="4" />
-                <Circle cx="50" cy="50" r="38" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeDasharray="6,4" />
-                <Circle cx="50" cy="50" r="22" fill="#B45309" />
-              </Svg>
-              <Text style={styles.balanceText}>{formatCoins(balance)}</Text>
-              <Text style={styles.coinsSuffix}>COINS</Text>
-            </View>
-          </View>
-
-          {/* Quick Player Stats */}
-          <View style={styles.statsRow}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNum}>{stats.totalRounds}</Text>
-              <Text style={styles.statLbl}>ROUNDS</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={[styles.statNum, { color: '#10B981' }]}>{winRate}%</Text>
-              <Text style={styles.statLbl}>WIN RATE</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={[styles.statNum, { color: '#FFE082' }]}>
-                {stats.bestStreak}
-              </Text>
-              <Text style={styles.statLbl}>STREAK</Text>
-            </View>
-          </View>
-
-          {/* 4 Main Menu Action Cards */}
+          {/* Main Menu Action Cards */}
           <View style={styles.menuCardsContainer}>
             {/* 1. Single Player */}
             <TouchableOpacity
@@ -178,7 +139,7 @@ export const HomeScreen: React.FC<Props> = ({
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
 
-            {/* 3 & 4: Setting and About in a 2-column Grid */}
+            {/* 4 & 5: Setting and About in a 2-column Grid */}
             <View style={styles.secondaryMenuRow}>
               {/* Setting */}
               <TouchableOpacity
@@ -213,6 +174,45 @@ export const HomeScreen: React.FC<Props> = ({
                 <Text style={styles.historyLinkTxt}>📜 មើលប្រវត្តិលេងកន្លងមក (GAME HISTORY)</Text>
               </TouchableOpacity>
             )}
+          </View>
+
+          {/* Wallet Balance Display Card (Moved to bottom per user request) */}
+          <View style={styles.walletCard}>
+            <Text style={styles.walletLabel}>កាបូបលុយរបស់អ្នក (YOUR WALLET)</Text>
+            <View style={styles.balanceRow}>
+              <Svg width={30} height={30} viewBox="0 0 100 100">
+                <Defs>
+                  <LinearGradient id="homeGoldCoin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <Stop offset="0%" stopColor="#FFF176" />
+                    <Stop offset="50%" stopColor="#F5BA13" />
+                    <Stop offset="100%" stopColor="#D97706" />
+                  </LinearGradient>
+                </Defs>
+                <Circle cx="50" cy="50" r="47" fill="url(#homeGoldCoin)" stroke="#B45309" strokeWidth="4" />
+                <Circle cx="50" cy="50" r="38" fill="none" stroke="#FFFFFF" strokeWidth="2" strokeDasharray="6,4" />
+                <Circle cx="50" cy="50" r="22" fill="#B45309" />
+              </Svg>
+              <Text style={styles.balanceText}>{formatCoins(balance)}</Text>
+              <Text style={styles.coinsSuffix}>COINS</Text>
+            </View>
+          </View>
+
+          {/* Quick Player Stats (Moved to bottom per user request) */}
+          <View style={styles.statsRow}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNum}>{stats.totalRounds}</Text>
+              <Text style={styles.statLbl}>ROUNDS</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={[styles.statNum, { color: '#10B981' }]}>{winRate}%</Text>
+              <Text style={styles.statLbl}>WIN RATE</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={[styles.statNum, { color: '#FFE082' }]}>
+                {stats.bestStreak}
+              </Text>
+              <Text style={styles.statLbl}>STREAK</Text>
+            </View>
           </View>
 
           {/* Developer Credit */}
